@@ -76,6 +76,8 @@ a {
 
 .content {
   flex: 1;
+  /* flex の子は min-height: auto だと中身の高さまで伸びてスクロールしないため 0 にする */
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
