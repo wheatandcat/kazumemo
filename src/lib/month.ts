@@ -27,6 +27,36 @@ export function shortMonthLabel(month: string): string {
   return `${parse(month).month}月`;
 }
 
+export function daysInMonth(month: string): number {
+  const p = parse(month);
+  return new Date(p.year, p.month, 0).getDate();
+}
+
+const WEEKDAYS = ['日', '月', '火', '水', '木', '金', '土'];
+
+/** 例：'10月12日（日）' */
+export function dayLabel(month: string, day: number): string {
+  const p = parse(month);
+  return `${p.month}月${day}日（${WEEKDAYS[new Date(p.year, p.month - 1, day).getDay()]}）`;
+}
+
+/** 今日が month に含まれていればその日、含まれなければ null */
+export function todayIn(month: string): number | null {
+  const now = new Date();
+  return currentMonth(now) === month ? now.getDate() : null;
+}
+
+/**
+ * 時刻 at を month の中の日（1〜末日）にする。
+ * 過去の月を開いて記録した場合など at が month の外にあるときは、月初か月末に寄せる。
+ */
+export function dayIn(at: number, month: string): number {
+  const d = new Date(at);
+  const m = currentMonth(d);
+  if (m === month) return d.getDate();
+  return m < month ? 1 : daysInMonth(month);
+}
+
 /** month で終わる直近 n か月（古い順） */
 export function recentMonths(month: string, n = 6): string[] {
   return Array.from({ length: n }, (_, i) => addMonths(month, i - n + 1));

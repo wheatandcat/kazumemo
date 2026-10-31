@@ -980,7 +980,7 @@ a {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 10px;
-  margin-top: -6px;
+  margin-top: 6px;
 }
 
 .axis-labels span {
@@ -1131,6 +1131,75 @@ a {
   min-width: 2px;
   border-radius: 3px 3px 0 0;
   background: var(--c);
+}
+
+.daily {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.daily-readout {
+  min-height: 20px;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.daily-readout.is-hint {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.daily-bars {
+  display: grid;
+  align-items: end;
+  gap: 2px;
+  height: 150px;
+  border-bottom: 1px solid var(--axis);
+  cursor: pointer;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.daily-col {
+  display: flex;
+  flex-direction: column-reverse;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 3px 3px 0 0;
+}
+
+.daily-seg {
+  display: block;
+  flex-shrink: 0;
+  background: var(--c);
+}
+
+.daily-bars.has-selection .daily-col:not(.is-selected) .daily-seg {
+  opacity: 0.45;
+}
+
+.daily-axis {
+  display: grid;
+  gap: 2px;
+  margin-top: -4px;
+}
+
+.daily-axis span {
+  overflow: visible;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.daily-axis .is-today,
+.daily-axis .is-selected {
+  font-weight: 800;
+  color: var(--ink);
 }
 
 /* ---- シート ---- */

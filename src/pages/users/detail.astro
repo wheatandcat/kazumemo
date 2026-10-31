@@ -56,9 +56,18 @@ import Base from '../../layouts/Base.astro';
       </section>
 
       <section class="card">
-        <h2 class="card-title">月ごとの合計</h2>
-        <div class="vbars" role="img" id="vbars"></div>
-        <div class="axis-labels" id="vbars-labels" aria-hidden="true"></div>
+        <div class="card-head">
+          <h2 class="card-title">合計の推移</h2>
+          <div class="tabs" role="tablist" aria-label="推移の単位">
+            <button type="button" class="tab" role="tab" data-range="month" aria-selected="true">月ごと</button>
+            <button type="button" class="tab" role="tab" data-range="day" aria-selected="false">日ごと</button>
+          </div>
+        </div>
+        <div id="trend-month">
+          <div class="vbars" role="img" id="vbars"></div>
+          <div class="axis-labels" id="vbars-labels" aria-hidden="true"></div>
+        </div>
+        <div class="daily" id="trend-day" hidden></div>
       </section>
     </div>
   </main>
@@ -95,9 +104,20 @@ import Base from '../../layouts/Base.astro';
 </Base>
 
 <script>
-  import { addMonths, getSelectedMonth, monthLabel, recentMonths, shortMonthLabel } from '../../lib/month';
+  import { renderDailyChart } from '../../lib/dailyChart';
+  import { addMonths, daysInMonth, getSelectedMonth, monthLabel, recentMonths, shortMonthLabel } from '../../lib/month';
   import { bindDangerButton, byId, fromTemplate, initialOf, part, setColor } from '../../lib/render';
-  import { countOf, deleteUser, itemsOf, updateUser, userTotal, watch, type Snapshot, type User } from '../../lib/repo';
+  import {
+    countOf,
+    dailyOf,
+    deleteUser,
+    itemsOf,
+    updateUser,
+    userTotal,
+    watch,
+    type Snapshot,
+    type User,
+  } from '../../lib/repo';
 
   const id = new URLSearchParams(location.search).get('id') ?? '';
   const month = getSelectedMonth();
@@ -107,6 +127,7 @@ import Base from '../../layouts/Base.astro';
   const editForm = byId<HTMLFormElement>('edit-form');
   const editName = byId<HTMLInputElement>('edit-name');
   let tab: 'month' | 'prev' = 'month';
+  let range: 'month' | 'day' = 'month';
   let snap: Snapshot | null = null;
   let user: User | undefined;
 
@@ -140,7 +161,26 @@ import Base from '../../layouts/Base.astro';
     }
   }
 
+  function renderDaily(s: Snapshot, u: User) {
+    // 項目ごとの日別回数を合算して、ユーザーの1日あたりの合計にする
+    const values = new Array<number>(daysInMonth(month)).fill(0);
+    for (const item of itemsOf(s, u)) {
+      dailyOf(s, month, item.id, u.id).forEach((n, i) => (values[i] += n));
+    }
+    renderDailyChart(byId('trend-day'), month, [{ name: u.name, color: u.color, values }]);
+  }
+
   function renderTrend(s: Snapshot, u: User) {
+    byId('trend-month').hidden = range !== 'month';
+    byId('trend-day').hidden = range !== 'day';
+    for (const t of document.querySelectorAll<HTMLButtonElement>('[data-range]')) {
+      t.setAttribute('aria-selected', String(t.dataset.range === range));
+    }
+    if (range === 'day') {
+      renderDaily(s, u);
+      return;
+    }
+
     const values = months.map((m) => userTotal(s, m, u));
     const max = Math.max(1, ...values);
     const box = byId('vbars');
@@ -191,6 +231,12 @@ import Base from '../../layouts/Base.astro';
   for (const t of document.querySelectorAll<HTMLButtonElement>('[data-tab]')) {
     t.addEventListener('click', () => {
       tab = t.dataset.tab === 'prev' ? 'prev' : 'month';
+      render();
+    });
+  }
+  for (const t of document.querySelectorAll<HTMLButtonElement>('[data-range]')) {
+    t.addEventListener('click', () => {
+      range = t.dataset.range === 'day' ? 'day' : 'month';
       render();
     });
   }

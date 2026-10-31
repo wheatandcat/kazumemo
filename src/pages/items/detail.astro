@@ -40,10 +40,19 @@ import Base from '../../layouts/Base.astro';
       </section>
 
       <section class="card" id="trend-card">
-        <h2 class="card-title">月ごとの推移</h2>
+        <div class="card-head">
+          <h2 class="card-title">推移</h2>
+          <div class="tabs" role="tablist" aria-label="推移の単位">
+            <button type="button" class="tab" role="tab" data-range="month" aria-selected="true">月ごと</button>
+            <button type="button" class="tab" role="tab" data-range="day" aria-selected="false">日ごと</button>
+          </div>
+        </div>
         <div class="legend" id="legend"></div>
-        <div class="groups" role="img" id="groups"></div>
-        <div class="axis-labels" style="gap: 8px" id="groups-labels" aria-hidden="true"></div>
+        <div id="trend-month">
+          <div class="groups" role="img" id="groups"></div>
+          <div class="axis-labels" style="gap: 8px" id="groups-labels" aria-hidden="true"></div>
+        </div>
+        <div class="daily" id="trend-day" hidden></div>
       </section>
 
       <button type="button" class="btn-secondary" id="members-btn">ユーザーの追加・はずす</button>
@@ -84,6 +93,7 @@ import Base from '../../layouts/Base.astro';
 </Base>
 
 <script>
+  import { renderDailyChart } from '../../lib/dailyChart';
   import { getSelectedMonth, monthLabel, recentMonths, shortMonthLabel } from '../../lib/month';
   import {
     bindDangerButton,
@@ -95,7 +105,16 @@ import Base from '../../layouts/Base.astro';
     setColor,
     userToggle,
   } from '../../lib/render';
-  import { countOf, deleteItem, membersOf, updateItem, watch, type Item, type Snapshot } from '../../lib/repo';
+  import {
+    countOf,
+    dailyOf,
+    deleteItem,
+    membersOf,
+    updateItem,
+    watch,
+    type Item,
+    type Snapshot,
+  } from '../../lib/repo';
 
   const id = new URLSearchParams(location.search).get('id') ?? '';
   const month = getSelectedMonth();
@@ -107,6 +126,7 @@ import Base from '../../layouts/Base.astro';
   const saveBtn = byId<HTMLButtonElement>('save-btn');
   let snap: Snapshot | null = null;
   let item: Item | undefined;
+  let range: 'month' | 'day' = 'month';
 
   function span(className: string, color?: string): HTMLElement {
     const el = document.createElement('span');
@@ -173,6 +193,20 @@ import Base from '../../layouts/Base.astro';
       }),
     );
 
+    byId('trend-month').hidden = range !== 'month';
+    byId('trend-day').hidden = range !== 'day';
+    for (const t of document.querySelectorAll<HTMLButtonElement>('[data-range]')) {
+      t.setAttribute('aria-selected', String(t.dataset.range === range));
+    }
+    if (range === 'day') {
+      renderDailyChart(
+        byId('trend-day'),
+        month,
+        rows.map((r) => ({ name: r.user.name, color: r.user.color, values: dailyOf(s, month, it.id, r.user.id) })),
+      );
+      return;
+    }
+
     const trend = months.map((m) => rows.map((r) => countOf(s, m, it.id, r.user.id)));
     const tmax = Math.max(1, ...trend.flat());
     const groups = byId('groups');
@@ -222,6 +256,13 @@ import Base from '../../layouts/Base.astro';
     editUsers.replaceChildren(...snap.users.map((u) => userToggle(u, members.has(u.id))));
     syncSave();
     sheet.showModal();
+  }
+
+  for (const t of document.querySelectorAll<HTMLButtonElement>('[data-range]')) {
+    t.addEventListener('click', () => {
+      range = t.dataset.range === 'day' ? 'day' : 'month';
+      render();
+    });
   }
 
   byId('edit-btn').addEventListener('click', openSheet);

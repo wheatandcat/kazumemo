@@ -1,15 +1,20 @@
 import { liveQuery } from 'dexie';
-import { db, type Item, type User } from './db';
+import { db, type CountEvent, type Item, type User } from './db';
+import { dayIn, daysInMonth } from './month';
 
 export type { Item, User };
 
 /** month -> itemId -> userId -> 回数 */
 export type Counts = Record<string, Record<string, Record<string, number>>>;
 
+/** month -> itemId -> userId -> 日ごとの回数（index 0 = 1日） */
+export type Daily = Record<string, Record<string, Record<string, number[]>>>;
+
 export type Snapshot = {
   users: User[];
   items: Item[];
   counts: Counts;
+  daily: Daily;
 };
 
 // crypto.randomUUID は secure context 限定なので、LAN の http で開いた場合に備えて getRandomValues で作る
@@ -44,13 +49,31 @@ async function query(months: string[]): Promise<Snapshot> {
     db.items.toArray(),
     months.length > 0 ? db.events.where('month').anyOf(months).toArray() : Promise.resolve([]),
   ]);
-  const counts: Counts = {};
+  const groups = new Map<string, CountEvent[]>();
   for (const e of events) {
-    const byItem = (counts[e.month] ??= {});
-    const byUser = (byItem[e.itemId] ??= {});
-    byUser[e.userId] = (byUser[e.userId] ?? 0) + e.delta;
+    const key = `${e.month}\n${e.itemId}\n${e.userId}`;
+    const list = groups.get(key);
+    if (list) list.push(e);
+    else groups.set(key, [e]);
   }
-  return { users: alive(users), items: alive(items), counts };
+
+  // 時刻順に +1 を積み、−1 は直近の +1 を取り消す。残った +1 の日付が日ごとの回数になる
+  const counts: Counts = {};
+  const daily: Daily = {};
+  for (const list of groups.values()) {
+    const { month, itemId, userId } = list[0];
+    list.sort((a, b) => a.at - b.at);
+    const stack: number[] = [];
+    for (const e of list) {
+      if (e.delta > 0) stack.push(dayIn(e.at, month));
+      else stack.pop();
+    }
+    const days = new Array<number>(daysInMonth(month)).fill(0);
+    for (const d of stack) days[d - 1]++;
+    ((counts[month] ??= {})[itemId] ??= {})[userId] = stack.length;
+    ((daily[month] ??= {})[itemId] ??= {})[userId] = days;
+  }
+  return { users: alive(users), items: alive(items), counts, daily };
 }
 
 /** 指定した月のカウントを含むスナップショットを1回だけ取得する */
@@ -70,7 +93,12 @@ export function watch(months: string[], onChange: (s: Snapshot) => void): () => 
 // ---- 集計 ----
 
 export function countOf(s: Snapshot, month: string, itemId: string, userId: string): number {
-  return Math.max(0, s.counts[month]?.[itemId]?.[userId] ?? 0);
+  return s.counts[month]?.[itemId]?.[userId] ?? 0;
+}
+
+/** 日ごとの回数（index 0 = 1日） */
+export function dailyOf(s: Snapshot, month: string, itemId: string, userId: string): number[] {
+  return s.daily[month]?.[itemId]?.[userId] ?? new Array<number>(daysInMonth(month)).fill(0);
 }
 
 /** 項目の現メンバー（項目に登録した順） */
@@ -142,7 +170,10 @@ export async function bump(month: string, itemId: string, userId: string, delta:
       .equals([month, itemId])
       .filter((e) => e.userId === userId)
       .toArray();
-    const current = events.reduce((sum, e) => sum + e.delta, 0);
+    // query() と同じく、0 回のときの −1 は無視して数える
+    const current = events
+      .sort((a, b) => a.at - b.at)
+      .reduce((n, e) => (e.delta > 0 ? n + 1 : Math.max(0, n - 1)), 0);
     if (delta < 0 && current <= 0) return null;
     await db.events.add({ id: uuid(), itemId, userId, month, delta, at: Date.now(), deviceId: device, syncedAt: 0 });
     return current + delta;
