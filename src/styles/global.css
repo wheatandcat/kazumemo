@@ -57,15 +57,28 @@ a {
   outline-offset: 2px;
 }
 
+/* スクロールはページ全体（body）で行い、下部ナビなどは position: fixed で画面下に固定する */
 .app {
   position: relative;
   display: flex;
   flex-direction: column;
   max-width: 430px;
-  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
   margin: 0 auto;
-  overflow: hidden;
   background: var(--bg);
+}
+
+/* 画面下に固定する要素は .app と同じ幅で中央に置く */
+.nav,
+.footer-cta {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  max-width: 430px;
+  margin: 0 auto;
 }
 
 @media (min-width: 431px) {
@@ -76,14 +89,10 @@ a {
 
 .content {
   flex: 1;
-  /* flex の子は min-height: auto だと中身の高さまで伸びてスクロールしないため 0 にする */
-  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
   padding: 8px 16px 32px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
 }
 
 .content.with-nav {
@@ -211,10 +220,6 @@ a {
 /* ---- 下部ナビ ---- */
 
 .nav {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: center;
@@ -339,10 +344,10 @@ a {
 }
 
 .toast {
-  position: absolute;
+  position: fixed;
   left: 50%;
   bottom: calc(var(--nav-h) + 20px + var(--safe-b));
-  z-index: 5;
+  z-index: 11;
   max-width: calc(100% - 32px);
   padding: 10px 18px;
   overflow: hidden;
@@ -592,10 +597,6 @@ a {
 }
 
 .footer-cta {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
   padding: 12px 20px calc(28px + var(--safe-b));
   border-top: 1px solid var(--line);
   background: var(--bg);
