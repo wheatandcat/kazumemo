@@ -1,0 +1,251 @@
+---
+import Icon from '../../components/Icon.astro';
+import Sheet from '../../components/Sheet.astro';
+import UserToggleTemplate from '../../components/UserToggleTemplate.astro';
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="項目詳細 | かずメモ">
+  <header class="bar">
+    <a href="/" class="bar-btn" aria-label="戻る">
+      <Icon name="chevron-left" size={22} stroke={2.2} />
+    </a>
+    <h1>項目詳細</h1>
+    <button type="button" class="bar-btn" aria-label="項目を編集" id="edit-btn" hidden>
+      <Icon name="edit" size={20} />
+    </button>
+  </header>
+
+  <main class="content">
+    <div class="empty" id="missing" hidden>
+      <h2>項目が見つかりません</h2>
+      <p>削除された可能性があります。</p>
+      <a class="btn-primary" href="/">リストへ</a>
+    </div>
+
+    <div id="detail" style="display: contents" hidden>
+      <section class="item-title">
+        <span class="item-title-name" id="name"></span>
+        <span class="sub" id="sub"></span>
+      </section>
+
+      <section class="card" style="gap: 16px">
+        <div class="card-head" style="align-items: baseline">
+          <h2 class="card-title" id="users-title"></h2>
+          <span class="total-inline"><small>合計</small><b id="total"></b><span>回</span></span>
+        </div>
+        <div class="share" role="img" id="share"></div>
+        <div class="urows" id="urows"></div>
+        <p class="note" id="no-members" hidden>ユーザーがいません。下のボタンから追加してください。</p>
+      </section>
+
+      <section class="card" id="trend-card">
+        <h2 class="card-title">月ごとの推移</h2>
+        <div class="legend" id="legend"></div>
+        <div class="groups" role="img" id="groups"></div>
+        <div class="axis-labels" style="gap: 8px" id="groups-labels" aria-hidden="true"></div>
+      </section>
+
+      <button type="button" class="btn-secondary" id="members-btn">ユーザーの追加・はずす</button>
+    </div>
+  </main>
+
+  <Sheet id="edit-sheet" title="項目を編集">
+    <form class="sheet-form" id="edit-form" novalidate>
+      <div class="field">
+        <label for="edit-name" class="field-label">項目名</label>
+        <input id="edit-name" class="text-input" type="text" maxlength="30" autocomplete="off" />
+      </div>
+      <fieldset class="field" style="border: none; margin: 0; padding: 0">
+        <legend class="field-label" style="margin-bottom: 12px">カウントするユーザー</legend>
+        <div class="toggle-grid" id="edit-users"></div>
+      </fieldset>
+      <p class="note">ユーザーをはずしても、これまでのカウントは残ります。</p>
+      <button type="submit" class="btn-primary btn-block" id="save-btn">保存する</button>
+      <button type="button" class="btn-danger" id="delete-btn">この項目を削除</button>
+    </form>
+  </Sheet>
+
+  <UserToggleTemplate />
+
+  <template id="tpl-urow">
+    <div class="urow">
+      <span class="avatar" style="--s: 36px" data-part="avatar"></span>
+      <span class="urow-mid">
+        <span class="urow-name" data-part="name"></span>
+        <span class="track"><span class="fill" data-part="fill"></span></span>
+      </span>
+      <span class="urow-val">
+        <b data-part="value"></b>
+        <span data-part="share"></span>
+      </span>
+    </div>
+  </template>
+</Base>
+
+<script>
+  import { getSelectedMonth, monthLabel, recentMonths, shortMonthLabel } from '../../lib/month';
+  import {
+    bindDangerButton,
+    byId,
+    checkedValues,
+    fromTemplate,
+    initialOf,
+    part,
+    setColor,
+    userToggle,
+  } from '../../lib/render';
+  import { countOf, deleteItem, membersOf, updateItem, watch, type Item, type Snapshot } from '../../lib/repo';
+
+  const id = new URLSearchParams(location.search).get('id') ?? '';
+  const month = getSelectedMonth();
+  const months = recentMonths(month, 6);
+  const sheet = byId<HTMLDialogElement>('edit-sheet');
+  const editForm = byId<HTMLFormElement>('edit-form');
+  const editName = byId<HTMLInputElement>('edit-name');
+  const editUsers = byId('edit-users');
+  const saveBtn = byId<HTMLButtonElement>('save-btn');
+  let snap: Snapshot | null = null;
+  let item: Item | undefined;
+
+  function span(className: string, color?: string): HTMLElement {
+    const el = document.createElement('span');
+    el.className = className;
+    if (color) setColor(el, color);
+    return el;
+  }
+
+  function render() {
+    if (!snap) return;
+    const s = snap;
+    item = s.items.find((i) => i.id === id);
+    byId('missing').hidden = !!item;
+    byId('detail').hidden = !item;
+    byId('edit-btn').hidden = !item;
+    if (!item) return;
+    const it = item;
+
+    const rows = membersOf(s, it)
+      .map((user) => ({ user, value: countOf(s, month, it.id, user.id) }))
+      .sort((a, b) => b.value - a.value);
+    const total = rows.reduce((sum, r) => sum + r.value, 0);
+    const max = Math.max(1, ...rows.map((r) => r.value));
+    const pct = (v: number) => (total > 0 ? Math.round((v / total) * 100) : 0);
+
+    byId('name').textContent = it.name;
+    byId('sub').textContent = `${monthLabel(month)}・${rows.length}人でカウント中`;
+    byId('users-title').textContent = `ユーザー別（${shortMonthLabel(month)}）`;
+    byId('total').textContent = String(total);
+    byId('no-members').hidden = rows.length > 0;
+    byId('trend-card').hidden = rows.length === 0;
+
+    const share = byId('share');
+    share.hidden = rows.length === 0;
+    share.setAttribute('aria-label', `割合：${rows.map((r) => `${r.user.name} ${pct(r.value)}%`).join('、')}`);
+    share.replaceChildren(
+      ...rows
+        .filter((r) => r.value > 0)
+        .map((r) => {
+          const seg = span('share-seg', r.user.color);
+          seg.style.flex = `${r.value} 1 0`;
+          return seg;
+        }),
+    );
+
+    byId('urows').replaceChildren(
+      ...rows.map((r) => {
+        const row = fromTemplate('tpl-urow');
+        setColor(row, r.user.color);
+        part(row, 'avatar').textContent = initialOf(r.user.name);
+        part(row, 'name').textContent = r.user.name;
+        part(row, 'fill').style.width = `${Math.round((r.value / max) * 100)}%`;
+        part(row, 'value').textContent = `${r.value}回`;
+        part(row, 'share').textContent = `${pct(r.value)}%`;
+        return row;
+      }),
+    );
+
+    byId('legend').replaceChildren(
+      ...rows.map((r) => {
+        const el = span('legend-item');
+        el.append(span('legend-dot', r.user.color), r.user.name);
+        return el;
+      }),
+    );
+
+    const trend = months.map((m) => rows.map((r) => countOf(s, m, it.id, r.user.id)));
+    const tmax = Math.max(1, ...trend.flat());
+    const groups = byId('groups');
+    groups.setAttribute(
+      'aria-label',
+      `月ごとの推移：${months
+        .map((m, i) => `${shortMonthLabel(m)} ${rows.map((r, j) => `${r.user.name}${trend[i][j]}回`).join('・')}`)
+        .join('、')}`,
+    );
+    groups.replaceChildren(
+      ...trend.map((values, i) => {
+        const group = span('group');
+        group.classList.toggle('is-current', i === months.length - 1);
+        group.append(
+          ...values.map((v, j) => {
+            const bar = span('gbar', rows[j].user.color);
+            bar.style.height = `${Math.round((v / tmax) * 130)}px`;
+            return bar;
+          }),
+        );
+        return group;
+      }),
+    );
+    byId('groups-labels').replaceChildren(
+      ...months.map((m, i) => {
+        const label = span(i === months.length - 1 ? 'is-current' : '');
+        label.textContent = shortMonthLabel(m);
+        return label;
+      }),
+    );
+  }
+
+  // ---- 編集シート ----
+  const resetDelete = bindDangerButton(byId<HTMLButtonElement>('delete-btn'), async () => {
+    await deleteItem(id);
+    location.replace('/');
+  });
+
+  function syncSave() {
+    saveBtn.disabled = !editName.value.trim() || checkedValues(editUsers).length === 0;
+  }
+
+  function openSheet() {
+    if (!snap || !item) return;
+    const members = new Set(item.userIds);
+    editName.value = item.name;
+    editUsers.replaceChildren(...snap.users.map((u) => userToggle(u, members.has(u.id))));
+    syncSave();
+    sheet.showModal();
+  }
+
+  byId('edit-btn').addEventListener('click', openSheet);
+  byId('members-btn').addEventListener('click', openSheet);
+  sheet.addEventListener('close', resetDelete);
+  editName.addEventListener('input', syncSave);
+  editUsers.addEventListener('change', syncSave);
+  editForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!item) return;
+    const name = editName.value.trim();
+    const checked = new Set(checkedValues(editUsers));
+    if (!name || checked.size === 0) return;
+    // 既存メンバーの並び順を保ち、新しく追加した人は後ろに足す
+    const userIds = [
+      ...item.userIds.filter((u) => checked.has(u)),
+      ...[...checked].filter((u) => !item!.userIds.includes(u)),
+    ];
+    await updateItem(id, { name, userIds });
+    sheet.close();
+  });
+
+  watch(months, (s) => {
+    snap = s;
+    render();
+  });
+</script>

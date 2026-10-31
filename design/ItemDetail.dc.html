@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>かずメモ 項目詳細</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D211C}a:hover{color:#000}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #F3F4EF; color: #1D211C; font-family: 'M PLUS Rounded 1c', system-ui, sans-serif; overflow: hidden">
+  <header style="padding: 16px 12px 4px; display: grid; grid-template-columns: 48px 1fr 48px; align-items: center">
+    <a href="Main.dc.html" aria-label="戻る" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 999px; color: #1D211C">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+    </a>
+    <h1 style="margin: 0; font-size: 17px; font-weight: 800; text-align: center">項目詳細</h1>
+    <button aria-label="項目を編集" style="width: 44px; height: 44px; border: none; background: transparent; border-radius: 999px; display: flex; align-items: center; justify-content: center; color: #1D211C; cursor: pointer">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"></path><path d="M13.5 6.5l4 4"></path></svg>
+    </button>
+  </header>
+
+  <main style="flex: 1; overflow-y: auto; padding: 8px 16px 32px; display: flex; flex-direction: column; gap: 16px">
+    <section style="display: flex; flex-direction: column; gap: 6px; padding: 4px 4px 4px">
+      <span style="font-size: 28px; font-weight: 800">皿洗い</span>
+      <span style="font-size: 13px; color: #5B6158">2026年10月・3人でカウント中</span>
+    </section>
+
+    <section style="background: #FFFFFF; border: 1px solid #E2E4DC; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 16px">
+      <div style="display: flex; align-items: baseline; justify-content: space-between">
+        <h2 style="margin: 0; font-size: 15px; font-weight: 800">ユーザー別（今月）</h2>
+        <span style="display: flex; align-items: baseline; gap: 4px"><span style="font-size: 12px; color: #5B6158">合計</span><b style="font-size: 28px; font-weight: 800; line-height: 1">{{total}}</b><span style="font-size: 13px; color: #5B6158">回</span></span>
+      </div>
+      <div role="img" aria-label="{{shareAria}}" style="display: flex; height: 14px; border-radius: 999px; overflow: hidden; gap: 2px">
+        <sc-for list="{{users}}" as="u" hint-placeholder-count="3">
+          <span style="display: block; height: 100%; flex: {{u.value}} 1 0; background: {{u.color}}"></span>
+        </sc-for>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 12px">
+        <sc-for list="{{users}}" as="u" hint-placeholder-count="3">
+          <div style="display: grid; grid-template-columns: 36px 1fr 64px; align-items: center; gap: 10px">
+            <span style="width: 36px; height: 36px; border-radius: 999px; color: #FFFFFF; font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center; background: {{u.color}}">{{u.initial}}</span>
+            <span style="display: flex; flex-direction: column; gap: 4px">
+              <span style="font-size: 13px; font-weight: 700">{{u.name}}</span>
+              <span style="height: 10px; background: #F0F1EC; border-radius: 999px; overflow: hidden; display: block">
+                <span style="display: block; height: 100%; border-radius: 999px; width: {{u.pct}}%; background: {{u.color}}"></span>
+              </span>
+            </span>
+            <span style="display: flex; flex-direction: column; align-items: flex-end">
+              <b style="font-size: 18px; font-weight: 800; line-height: 1.1">{{u.value}}回</b>
+              <span style="font-size: 11px; color: #5B6158">{{u.share}}%</span>
+            </span>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <section style="background: #FFFFFF; border: 1px solid #E2E4DC; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 14px">
+      <h2 style="margin: 0; font-size: 15px; font-weight: 800">月ごとの推移</h2>
+      <div style="display: flex; gap: 14px; flex-wrap: wrap">
+        <sc-for list="{{users}}" as="u" hint-placeholder-count="3">
+          <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #1D211C">
+            <span style="width: 10px; height: 10px; border-radius: 3px; display: block; background: {{u.color}}"></span>{{u.name}}
+          </span>
+        </sc-for>
+      </div>
+      <div role="img" aria-label="{{trendAria}}" style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; align-items: end; height: 150px; border-bottom: 1px solid #D5D8CE">
+        <sc-for list="{{months}}" as="m" hint-placeholder-count="6">
+          <div style="display: flex; align-items: flex-end; justify-content: center; gap: 2px; height: 100%">
+            <sc-for list="{{m.bars}}" as="b" hint-placeholder-count="3">
+              <span style="display: block; width: 9px; border-radius: 3px 3px 0 0; height: {{b.h}}px; background: {{b.color}}; opacity: {{m.op}}"></span>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin-top: -6px">
+        <sc-for list="{{months}}" as="m" hint-placeholder-count="6">
+          <span style="font-size: 11px; text-align: center; font-weight: {{m.weight}}; color: {{m.fg}}">{{m.label}}</span>
+        </sc-for>
+      </div>
+    </section>
+
+    <button style="height: 52px; border-radius: 16px; border: 1px solid #C9CDC2; background: #FFFFFF; color: #1D211C; font-size: 14px; font-weight: 800; cursor: pointer">ユーザーの追加・はずす</button>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+var USERS = [
+  { name: '妻',   initial: '妻', color: '#B8551C', value: 12, trend: [10, 11, 12, 9, 11, 12] },
+  { name: '自分', initial: '自', color: '#2563C9', value: 9,  trend: [7, 8, 6, 9, 8, 9] },
+  { name: '息子', initial: '息', color: '#1A7F50', value: 6,  trend: [3, 4, 5, 6, 5, 6] }
+];
+var MONTHS = ['5月', '6月', '7月', '8月', '9月', '10月'];
+class Component extends DCLogic {
+  renderVals() {
+    var total = USERS.reduce(function (s, u) { return s + u.value; }, 0);
+    var max = Math.max.apply(null, USERS.map(function (u) { return u.value; }));
+    var tmax = 12;
+    return {
+      total: total,
+      users: USERS.map(function (u) {
+        return { name: u.name, initial: u.initial, color: u.color, value: u.value, pct: Math.round(u.value / max * 100), share: Math.round(u.value / total * 100) };
+      }),
+      shareAria: '割合：' + USERS.map(function (u) { return u.name + ' ' + Math.round(u.value / total * 100) + '%'; }).join('、'),
+      months: MONTHS.map(function (label, i) {
+        var last = i === MONTHS.length - 1;
+        return {
+          label: label, op: last ? 1 : 0.55, weight: last ? 800 : 700, fg: last ? '#1D211C' : '#5B6158',
+          bars: USERS.map(function (u) { return { color: u.color, h: Math.round(u.trend[i] / tmax * 130) }; })
+        };
+      }),
+      trendAria: '月ごとの推移：' + MONTHS.map(function (m, i) {
+        return m + ' ' + USERS.map(function (u) { return u.name + u.trend[i] + '回'; }).join('・');
+      }).join('、')
+    };
+  }
+}
+</script>
+</body>
+</html>

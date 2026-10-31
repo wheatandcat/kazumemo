@@ -1,0 +1,123 @@
+---
+import Icon from '../../components/Icon.astro';
+import UserToggleTemplate from '../../components/UserToggleTemplate.astro';
+import Base from '../../layouts/Base.astro';
+
+const suggestions = ['洗濯', '掃除', 'ゴミ出し', '朝食準備', '皿洗い', 'お風呂そうじ', '買い出し'];
+---
+
+<Base title="項目を追加 | かずメモ">
+  <header class="bar">
+    <a href="/" class="bar-btn" aria-label="閉じる">
+      <Icon name="close" size={22} stroke={2.2} />
+    </a>
+    <h1>項目を追加</h1>
+    <span></span>
+  </header>
+
+  <form id="item-form" class="content with-cta" novalidate>
+    <div class="field">
+      <label for="item-name" class="field-label">項目名</label>
+      <input
+        id="item-name"
+        class="text-input lg"
+        type="text"
+        maxlength="30"
+        autocomplete="off"
+        enterkeyhint="done"
+        placeholder="例：お風呂そうじ"
+      />
+      <div class="chips">
+        {
+          suggestions.map((s) => (
+            <button type="button" class="chip" data-suggest={s}>
+              {s}
+            </button>
+          ))
+        }
+      </div>
+    </div>
+
+    <fieldset class="field" style="border: none; margin: 0; padding: 0">
+      <legend class="field-label" style="margin-bottom: 12px">カウントするユーザー</legend>
+      <div class="toggle-grid" id="users"></div>
+      <a href="/users/" class="text-link">
+        <Icon name="plus" size={16} stroke={2.2} />
+        ユーザーを登録する
+      </a>
+    </fieldset>
+
+    <section class="field" aria-label="プレビュー">
+      <span class="field-label">リストでの表示</span>
+      <div class="empty" style="gap: 12px; padding: 14px 16px 16px">
+        <span style="font-size: 17px; font-weight: 800" id="preview-name">項目名</span>
+        <div class="members" id="preview-avatars" style="min-height: 56px"></div>
+      </div>
+    </section>
+
+    <div class="footer-cta">
+      <button type="submit" class="btn-primary btn-block" id="submit" disabled>リストに登録する</button>
+    </div>
+  </form>
+
+  <UserToggleTemplate />
+  <template id="tpl-no-users">
+    <p class="note">ユーザーがまだいません。先にユーザーを登録してください。</p>
+  </template>
+</Base>
+
+<script>
+  import { avatar, byId, checkedValues, fromTemplate, userToggle } from '../../lib/render';
+  import { addItem, load, type User } from '../../lib/repo';
+
+  const form = byId<HTMLFormElement>('item-form');
+  const input = byId<HTMLInputElement>('item-name');
+  const usersBox = byId('users');
+  const submit = byId<HTMLButtonElement>('submit');
+  const previewName = byId('preview-name');
+  const previewAvatars = byId('preview-avatars');
+  let users: User[] = [];
+
+  function selected(): User[] {
+    const ids = new Set(checkedValues(usersBox));
+    return users.filter((u) => ids.has(u.id));
+  }
+
+  function refresh() {
+    const name = input.value.trim();
+    const chosen = selected();
+    previewName.textContent = name || '項目名';
+    previewAvatars.replaceChildren(...chosen.map((u) => avatar(u, 56)));
+    submit.disabled = !name || chosen.length === 0;
+  }
+
+  for (const chip of document.querySelectorAll<HTMLButtonElement>('[data-suggest]')) {
+    chip.addEventListener('click', () => {
+      input.value = chip.dataset.suggest ?? '';
+      refresh();
+    });
+  }
+  input.addEventListener('input', refresh);
+  usersBox.addEventListener('change', refresh);
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = input.value.trim();
+    const ids = selected().map((u) => u.id);
+    if (!name || ids.length === 0) return;
+    submit.disabled = true;
+    await addItem(name, ids);
+    location.href = '/';
+  });
+
+  load([]).then((s) => {
+    users = s.users;
+    if (users.length === 0) {
+      usersBox.replaceChildren(fromTemplate('tpl-no-users'));
+    } else {
+      // 初期状態は全員を選択しておく
+      usersBox.replaceChildren(...users.map((u) => userToggle(u, true)));
+    }
+    refresh();
+  });
+</script>

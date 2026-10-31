@@ -1,0 +1,173 @@
+---
+import BottomNav from '../components/BottomNav.astro';
+import Icon from '../components/Icon.astro';
+import MonthSwitcher from '../components/MonthSwitcher.astro';
+import Toast from '../components/Toast.astro';
+import Base from '../layouts/Base.astro';
+---
+
+<Base title="かずメモ">
+  <header class="top">
+    <div class="top-row">
+      <h1 class="brand">かずメモ</h1>
+      <MonthSwitcher />
+    </div>
+    <p class="hint">
+      <Icon name="hand" size={16} />
+      タップで <b>+1</b>・長押しで <b>−1</b>
+    </p>
+  </header>
+
+  <main class="content with-nav" id="list" aria-label="カウントする項目"></main>
+
+  <Toast />
+  <BottomNav active="list" />
+
+  <template id="tpl-card">
+    <section class="card item-card">
+      <div class="item-head">
+        <a class="item-name" data-part="link">
+          <span data-part="name"></span>
+          <Icon name="chevron-right" size={16} stroke={2.2} color="#8A9086" />
+        </a>
+        <span class="item-total">計 <b data-part="total"></b> 回</span>
+      </div>
+      <div class="members" data-part="members"></div>
+    </section>
+  </template>
+
+  <template id="tpl-member">
+    <div class="member">
+      <button type="button" class="counter" data-part="btn">
+        <span data-part="initial"></span>
+        <span class="badge" data-part="count"></span>
+      </button>
+      <span class="member-name" data-part="name"></span>
+    </div>
+  </template>
+
+  <template id="tpl-no-members">
+    <p class="note">ユーザーがいません。項目名をタップして追加できます。</p>
+  </template>
+
+  <template id="tpl-empty-users">
+    <div class="empty">
+      <h2>まずはユーザーを登録</h2>
+      <p>自分、家族、同僚など、カウントしたい人を登録しましょう。</p>
+      <a class="btn-primary" href="/users/">ユーザーを登録する</a>
+    </div>
+  </template>
+
+  <template id="tpl-empty-items">
+    <div class="empty">
+      <h2>カウントする項目を追加</h2>
+      <p>洗濯、掃除、ゴミ出しなど、回数を数えたいことを登録しましょう。</p>
+      <a class="btn-primary" href="/items/new/">項目を追加する</a>
+    </div>
+  </template>
+</Base>
+
+<script>
+  import { bindCounter } from '../lib/longpress';
+  import { MONTH_EVENT, getSelectedMonth } from '../lib/month';
+  import { byId, fromTemplate, initialOf, part, setColor } from '../lib/render';
+  import { bump, countOf, itemTotal, membersOf, watch, type Item, type Snapshot, type User } from '../lib/repo';
+  import { toast } from '../lib/toast';
+
+  const list = byId('list');
+  let month = getSelectedMonth();
+  let structure = '';
+  let stop = () => {};
+  const flashTimers = new WeakMap<HTMLElement, number>();
+
+  function flash(btn: HTMLElement, delta: 1 | -1) {
+    clearTimeout(flashTimers.get(btn));
+    btn.classList.remove('is-plus', 'is-minus');
+    btn.classList.add(delta > 0 ? 'is-plus' : 'is-minus');
+    flashTimers.set(
+      btn,
+      window.setTimeout(() => btn.classList.remove('is-plus', 'is-minus'), 220),
+    );
+  }
+
+  async function count(btn: HTMLElement, item: Item, user: User, delta: 1 | -1) {
+    const value = await bump(month, item.id, user.id, delta);
+    if (value === null) {
+      toast(`${user.name}・${item.name} は0回です`);
+      return;
+    }
+    flash(btn, delta);
+    toast(`${user.name}・${item.name} ${delta > 0 ? '+1' : '−1'}（${value}回）`);
+  }
+
+  // ユーザー・項目の構成が変わったときだけ DOM を作り直す（押下中のアニメーションを壊さないため）
+  function build(s: Snapshot) {
+    list.replaceChildren();
+    if (s.users.length === 0) {
+      list.append(fromTemplate('tpl-empty-users'));
+      return;
+    }
+    if (s.items.length === 0) {
+      list.append(fromTemplate('tpl-empty-items'));
+      return;
+    }
+    for (const item of s.items) {
+      const card = fromTemplate('tpl-card');
+      card.dataset.item = item.id;
+      part(card, 'name').textContent = item.name;
+      part<HTMLAnchorElement>(card, 'link').href = `/items/detail/?id=${encodeURIComponent(item.id)}`;
+      const members = part(card, 'members');
+      const users = membersOf(s, item);
+      if (users.length === 0) members.append(fromTemplate('tpl-no-members'));
+      for (const user of users) {
+        const member = fromTemplate('tpl-member');
+        setColor(member, user.color);
+        const btn = part(member, 'btn');
+        btn.dataset.user = user.id;
+        part(member, 'initial').textContent = initialOf(user.name);
+        part(member, 'name').textContent = user.name;
+        bindCounter(btn, (delta) => count(btn, item, user, delta));
+        members.append(member);
+      }
+      list.append(card);
+    }
+  }
+
+  function update(s: Snapshot) {
+    for (const item of s.items) {
+      const card = list.querySelector<HTMLElement>(`[data-item="${CSS.escape(item.id)}"]`);
+      if (!card) continue;
+      part(card, 'total').textContent = String(itemTotal(s, month, item));
+      for (const user of membersOf(s, item)) {
+        const btn = card.querySelector<HTMLElement>(`[data-user="${CSS.escape(user.id)}"]`);
+        if (!btn) continue;
+        const n = countOf(s, month, item.id, user.id);
+        part(btn, 'count').textContent = String(n);
+        btn.setAttribute('aria-label', `${user.name}：${item.name} ${n}回。タップで1回追加、長押しで1回減らす`);
+      }
+    }
+  }
+
+  function render(s: Snapshot) {
+    const key = JSON.stringify([
+      s.users.map((u) => [u.id, u.name, u.color]),
+      s.items.map((i) => [i.id, i.name, i.userIds]),
+    ]);
+    if (key !== structure) {
+      structure = key;
+      build(s);
+    }
+    update(s);
+  }
+
+  function start() {
+    stop();
+    stop = watch([month], render);
+  }
+
+  window.addEventListener(MONTH_EVENT, (e) => {
+    month = (e as CustomEvent<string>).detail;
+    start();
+  });
+  start();
+</script>

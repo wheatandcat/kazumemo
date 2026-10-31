@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>かずメモ ユーザー</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D211C}a:hover{color:#000}
+button,input{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #F3F4EF; color: #1D211C; font-family: 'M PLUS Rounded 1c', system-ui, sans-serif; position: relative; overflow: hidden">
+  <header style="padding: 20px 20px 12px; display: flex; align-items: center; justify-content: space-between">
+    <h1 style="margin: 0; font-size: 24px; font-weight: 800">ユーザー</h1>
+    <span style="font-size: 13px; color: #5B6158; font-weight: 700">2026年10月</span>
+  </header>
+
+  <main style="flex: 1; overflow-y: auto; padding: 4px 16px 120px; display: flex; flex-direction: column; gap: 20px">
+    <form onSubmit="{{add}}" style="background: #FFFFFF; border: 1px solid #E2E4DC; border-radius: 20px; padding: 16px; display: flex; flex-direction: column; gap: 14px">
+      <label for="user-name" style="font-size: 13px; font-weight: 800; color: #5B6158">ユーザーを登録</label>
+      <div style="display: flex; gap: 10px; align-items: center">
+        <span aria-hidden="true" style="width: 48px; height: 48px; border-radius: 999px; color: #FFFFFF; font-size: 18px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: {{draftColor}}">{{draftInitial}}</span>
+        <input id="user-name" type="text" value="{{draft}}" onChange="{{onDraft}}" placeholder="例：娘、おばあちゃん" style="flex: 1; min-width: 0; height: 48px; box-sizing: border-box; border-radius: 14px; border: 1px solid #C9CDC2; background: #F8F9F5; padding: 0 14px; font-size: 16px; font-weight: 700; color: #1D211C">
+      </div>
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+        <div role="radiogroup" aria-label="アイコンの色" style="display: flex; gap: 6px">
+          <sc-for list="{{swatches}}" as="sw" hint-placeholder-count="6">
+            <button type="button" role="radio" aria-checked="{{sw.checked}}" aria-label="{{sw.label}}" onClick="{{sw.pick}}" style="width: 32px; height: 32px; border-radius: 999px; border: none; cursor: pointer; padding: 0; background: {{sw.color}}; box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 {{sw.ring}}px #1D211C"></button>
+          </sc-for>
+        </div>
+        <button type="submit" style="height: 44px; padding: 0 18px; border-radius: 12px; border: none; background: #1D211C; color: #FFFFFF; font-size: 14px; font-weight: 800; cursor: pointer">追加</button>
+      </div>
+    </form>
+
+    <section style="display: flex; flex-direction: column; gap: 8px">
+      <h2 style="margin: 0 4px 4px; font-size: 13px; font-weight: 800; color: #5B6158">登録済み・{{count}}人</h2>
+      <sc-for list="{{users}}" as="u" hint-placeholder-count="4">
+        <a href="UserDetail.dc.html" style="text-decoration: none; background: #FFFFFF; border: 1px solid #E2E4DC; border-radius: 18px; padding: 12px 14px; display: flex; align-items: center; gap: 12px">
+          <span style="width: 48px; height: 48px; border-radius: 999px; color: #FFFFFF; font-size: 18px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: {{u.color}}">{{u.initial}}</span>
+          <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+            <span style="font-size: 16px; font-weight: 800; color: #1D211C">{{u.name}}</span>
+            <span style="font-size: 12px; color: #5B6158">{{u.sub}}</span>
+          </span>
+          <span style="display: flex; align-items: baseline; gap: 2px; color: #1D211C">
+            <b style="font-size: 22px; font-weight: 800">{{u.total}}</b>
+            <span style="font-size: 12px; color: #5B6158">回</span>
+          </span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A9086" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+        </a>
+      </sc-for>
+    </section>
+  </main>
+
+  <nav aria-label="メイン" style="position: absolute; left: 0; right: 0; bottom: 0; height: 84px; background: #FFFFFF; border-top: 1px solid #E2E4DC; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; padding-bottom: 8px; box-sizing: border-box">
+    <a href="Main.dc.html" style="text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: #5B6158; min-height: 44px; justify-content: center">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h12"></path><path d="M8 12h12"></path><path d="M8 18h12"></path><circle cx="4" cy="6" r="1"></circle><circle cx="4" cy="12" r="1"></circle><circle cx="4" cy="18" r="1"></circle></svg>
+      リスト
+    </a>
+    <div style="display: flex; justify-content: center">
+      <a href="AddItem.dc.html" aria-label="項目を追加" style="width: 60px; height: 60px; border-radius: 999px; background: #1D211C; color: #FFFFFF; display: flex; align-items: center; justify-content: center; margin-top: -28px; box-shadow: 0 6px 16px rgba(29,33,28,0.25)">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+      </a>
+    </div>
+    <a href="Users.dc.html" aria-current="page" style="text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 800; color: #1D211C; min-height: 44px; justify-content: center">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0"></path><path d="M16 4.5a3.5 3.5 0 0 1 0 7"></path><path d="M18 14.5a6.5 6.5 0 0 1 3.5 5.5"></path></svg>
+      ユーザー
+    </a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+var COLORS = [
+  { color: '#2563C9', label: '青' },
+  { color: '#B8551C', label: 'オレンジ' },
+  { color: '#1A7F50', label: '緑' },
+  { color: '#7F49C0', label: '紫' },
+  { color: '#B5306B', label: 'ピンク' },
+  { color: '#4A5260', label: 'グレー' }
+];
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      draft: '', pick: 4,
+      users: [
+        { name: '自分', initial: '自', color: '#2563C9', total: 33, sub: 'いちばん多い：皿洗い 9回' },
+        { name: '妻',   initial: '妻', color: '#B8551C', total: 53, sub: 'いちばん多い：朝食準備 22回' },
+        { name: '息子', initial: '息', color: '#1A7F50', total: 13, sub: 'いちばん多い：皿洗い 6回' },
+        { name: '同僚', initial: '同', color: '#7F49C0', total: 5,  sub: 'いちばん多い：議事録づくり 5回' }
+      ]
+    };
+  }
+  renderVals() {
+    var self = this;
+    var draft = this.state.draft;
+    var col = COLORS[this.state.pick].color;
+    return {
+      draft: draft,
+      draftInitial: draft ? draft.charAt(0) : '?',
+      draftColor: col,
+      onDraft: function (e) { self.setState({ draft: e.target.value }); },
+      swatches: COLORS.map(function (c, i) {
+        var on = i === self.state.pick;
+        return { color: c.color, label: c.label, checked: on ? 'true' : 'false', ring: on ? 4 : 0, pick: function () { self.setState({ pick: i }); } };
+      }),
+      add: function (e) {
+        e.preventDefault();
+        var n = self.state.draft.trim();
+        if (!n) return;
+        var users = self.state.users.concat([{ name: n, initial: n.charAt(0), color: col, total: 0, sub: 'まだカウントがありません' }]);
+        self.setState({ users: users, draft: '', pick: (self.state.pick + 1) % COLORS.length });
+      },
+      users: this.state.users,
+      count: this.state.users.length
+    };
+  }
+}
+</script>
+</body>
+</html>

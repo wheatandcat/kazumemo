@@ -1,0 +1,12 @@
+---
+import Icon from './Icon.astro';
+---
+
+<template id="tpl-user-toggle">
+  <label class="user-toggle">
+    <input type="checkbox" data-part="input" />
+    <span class="avatar" style="--s: 40px" data-part="initial"></span>
+    <span class="toggle-name" data-part="name"></span>
+    <span class="check"><Icon name="check" size={14} stroke={3} /></span>
+  </label>
+</template>

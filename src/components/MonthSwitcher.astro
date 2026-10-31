@@ -1,0 +1,32 @@
+---
+import Icon from './Icon.astro';
+---
+
+<div class="month-switch" data-month-switch>
+  <button type="button" class="icon-btn" aria-label="前の月" data-month-prev>
+    <Icon name="chevron-left" size={18} stroke={2.2} />
+  </button>
+  <span class="month-label" aria-live="polite" data-month-label></span>
+  <button type="button" class="icon-btn" aria-label="次の月" data-month-next>
+    <Icon name="chevron-right" size={18} stroke={2.2} />
+  </button>
+</div>
+
+<script>
+  import { MONTH_EVENT, addMonths, getSelectedMonth, monthLabel, setSelectedMonth } from '../lib/month';
+
+  for (const root of document.querySelectorAll<HTMLElement>('[data-month-switch]')) {
+    const label = root.querySelector<HTMLElement>('[data-month-label]')!;
+    const sync = () => {
+      label.textContent = monthLabel(getSelectedMonth());
+    };
+    root.querySelector('[data-month-prev]')!.addEventListener('click', () => {
+      setSelectedMonth(addMonths(getSelectedMonth(), -1));
+    });
+    root.querySelector('[data-month-next]')!.addEventListener('click', () => {
+      setSelectedMonth(addMonths(getSelectedMonth(), 1));
+    });
+    window.addEventListener(MONTH_EVENT, sync);
+    sync();
+  }
+</script>

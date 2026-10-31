@@ -1,0 +1,23 @@
+---
+import Icon from './Icon.astro';
+
+interface Props {
+  active: 'list' | 'users';
+}
+
+const { active } = Astro.props;
+---
+
+<nav class="nav" aria-label="メイン">
+  <a href="/" class="nav-link" aria-current={active === 'list' ? 'page' : undefined}>
+    <Icon name="list" />
+    リスト
+  </a>
+  <a href="/items/new/" class="fab" aria-label="項目を追加">
+    <Icon name="plus" size={26} stroke={2.4} />
+  </a>
+  <a href="/users/" class="nav-link" aria-current={active === 'users' ? 'page' : undefined}>
+    <Icon name="users" />
+    ユーザー
+  </a>
+</nav>

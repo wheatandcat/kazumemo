@@ -1,0 +1,148 @@
+---
+import BottomNav from '../../components/BottomNav.astro';
+import ColorSwatches from '../../components/ColorSwatches.astro';
+import Icon from '../../components/Icon.astro';
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="ユーザー | かずメモ">
+  <header class="page-head">
+    <h1 class="page-title">ユーザー</h1>
+    <span class="page-head-sub" id="month-label"></span>
+  </header>
+
+  <main class="content with-nav" style="gap: 20px">
+    <form id="user-form" class="card" novalidate>
+      <label for="user-name" class="field-label">ユーザーを登録</label>
+      <div class="register-row">
+        <span class="avatar" id="draft-avatar" aria-hidden="true">?</span>
+        <input
+          id="user-name"
+          class="text-input"
+          type="text"
+          maxlength="20"
+          autocomplete="off"
+          enterkeyhint="done"
+          placeholder="例：自分、妻、息子"
+        />
+      </div>
+      <div class="register-foot">
+        <ColorSwatches name="color" />
+        <button type="submit" class="btn-primary" id="add-btn" disabled>追加</button>
+      </div>
+    </form>
+
+    <section class="list" aria-labelledby="user-count">
+      <h2 class="section-title" id="user-count"></h2>
+      <div class="list" id="user-list"></div>
+    </section>
+  </main>
+
+  <BottomNav active="users" />
+
+  <template id="tpl-user-row">
+    <a class="user-row">
+      <span class="avatar" data-part="avatar"></span>
+      <span class="user-row-main">
+        <span class="user-row-name" data-part="name"></span>
+        <span class="user-row-sub" data-part="sub"></span>
+      </span>
+      <span class="user-row-total"><b data-part="total"></b><span>回</span></span>
+      <Icon name="chevron-right" size={18} stroke={2.2} color="#8A9086" />
+    </a>
+  </template>
+
+  <template id="tpl-no-users">
+    <p class="note" style="margin: 0 4px">まだ登録されていません。上のフォームから追加してください。</p>
+  </template>
+</Base>
+
+<script>
+  import { suggestColor } from '../../lib/colors';
+  import { getSelectedMonth, monthLabel } from '../../lib/month';
+  import { byId, fromTemplate, initialOf, part, setColor } from '../../lib/render';
+  import { addUser, countOf, itemsOf, userTotal, watch, type Snapshot, type User } from '../../lib/repo';
+
+  const month = getSelectedMonth();
+  const form = byId<HTMLFormElement>('user-form');
+  const input = byId<HTMLInputElement>('user-name');
+  const draftAvatar = byId('draft-avatar');
+  const addBtn = byId<HTMLButtonElement>('add-btn');
+  const list = byId('user-list');
+  let colorTouched = false;
+
+  byId('month-label').textContent = monthLabel(month);
+
+  function pickedColor(): string {
+    return form.querySelector<HTMLInputElement>('input[name="color"]:checked')?.value ?? '';
+  }
+
+  function pickColor(color: string) {
+    for (const radio of form.querySelectorAll<HTMLInputElement>('input[name="color"]')) {
+      radio.checked = radio.value === color;
+    }
+  }
+
+  function syncDraft() {
+    const name = input.value.trim();
+    draftAvatar.textContent = name ? initialOf(name) : '?';
+    setColor(draftAvatar, pickedColor());
+    addBtn.disabled = !name;
+  }
+
+  function summary(s: Snapshot, user: User): string {
+    const items = itemsOf(s, user);
+    if (items.length === 0) return '参加している項目はありません';
+    let top = { name: '', n: 0 };
+    for (const item of items) {
+      const n = countOf(s, month, item.id, user.id);
+      if (n > top.n) top = { name: item.name, n };
+    }
+    return top.n > 0 ? `いちばん多い：${top.name} ${top.n}回` : 'まだカウントがありません';
+  }
+
+  function render(s: Snapshot) {
+    if (!colorTouched) {
+      pickColor(suggestColor(s.users.map((u) => u.color)));
+      syncDraft();
+    }
+    byId('user-count').textContent = `登録済み・${s.users.length}人`;
+    if (s.users.length === 0) {
+      list.replaceChildren(fromTemplate('tpl-no-users'));
+      return;
+    }
+    list.replaceChildren(
+      ...s.users.map((user) => {
+        const row = fromTemplate<HTMLAnchorElement>('tpl-user-row');
+        row.href = `/users/detail/?id=${encodeURIComponent(user.id)}`;
+        const av = part(row, 'avatar');
+        setColor(av, user.color);
+        av.textContent = initialOf(user.name);
+        part(row, 'name').textContent = user.name;
+        part(row, 'sub').textContent = summary(s, user);
+        part(row, 'total').textContent = String(userTotal(s, month, user));
+        return row;
+      }),
+    );
+  }
+
+  input.addEventListener('input', syncDraft);
+  form.addEventListener('change', (e) => {
+    if ((e.target as HTMLInputElement).name === 'color') {
+      colorTouched = true;
+      syncDraft();
+    }
+  });
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = input.value.trim();
+    if (!name) return;
+    addBtn.disabled = true;
+    await addUser(name, pickedColor());
+    input.value = '';
+    colorTouched = false;
+    syncDraft();
+  });
+
+  watch([month], render);
+</script>

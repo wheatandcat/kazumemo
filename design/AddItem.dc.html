@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>かずメモ 項目を追加</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D211C}a:hover{color:#000}
+button,input{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #F3F4EF; color: #1D211C; font-family: 'M PLUS Rounded 1c', system-ui, sans-serif; position: relative; overflow: hidden">
+  <header style="padding: 16px 12px 8px; display: grid; grid-template-columns: 48px 1fr 48px; align-items: center">
+    <a href="Main.dc.html" aria-label="閉じる" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border-radius: 999px; color: #1D211C">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg>
+    </a>
+    <h1 style="margin: 0; font-size: 17px; font-weight: 800; text-align: center">項目を追加</h1>
+    <span></span>
+  </header>
+
+  <main style="flex: 1; overflow-y: auto; padding: 12px 20px 120px; display: flex; flex-direction: column; gap: 28px">
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <label for="item-name" style="font-size: 13px; font-weight: 800; color: #5B6158">項目名</label>
+      <input id="item-name" type="text" value="{{name}}" onChange="{{onName}}" placeholder="例：お風呂そうじ" style="height: 56px; box-sizing: border-box; border-radius: 16px; border: 2px solid #1D211C; background: #FFFFFF; padding: 0 16px; font-size: 18px; font-weight: 700; color: #1D211C; outline: none">
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <sc-for list="{{suggest}}" as="s" hint-placeholder-count="6">
+          <button onClick="{{s.pick}}" style="height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid #D5D8CE; background: #FFFFFF; font-size: 13px; font-weight: 700; color: #1D211C; cursor: pointer">{{s.label}}</button>
+        </sc-for>
+      </div>
+    </div>
+
+    <fieldset style="border: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px">
+      <legend style="font-size: 13px; font-weight: 800; color: #5B6158; padding: 0; margin-bottom: 12px">カウントするユーザー</legend>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+        <sc-for list="{{users}}" as="u" hint-placeholder-count="4">
+          <button aria-pressed="{{u.pressed}}" onClick="{{u.toggle}}" style="display: flex; align-items: center; gap: 10px; height: 64px; padding: 0 12px; border-radius: 16px; background: #FFFFFF; cursor: pointer; text-align: left; border: 2px solid {{u.border}}">
+            <span style="width: 40px; height: 40px; border-radius: 999px; color: #FFFFFF; font-size: 16px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: {{u.color}}">{{u.initial}}</span>
+            <span style="flex: 1; font-size: 15px; font-weight: 700; color: #1D211C">{{u.name}}</span>
+            <span style="width: 22px; height: 22px; border-radius: 999px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; background: {{u.checkBg}}; border: 2px solid {{u.checkBorder}}; color: #FFFFFF">
+              <sc-if value="{{u.on}}" hint-placeholder-val="{{ true }}">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+              </sc-if>
+            </span>
+          </button>
+        </sc-for>
+      </div>
+      <a href="Users.dc.html" style="align-self: flex-start; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; color: #5B6158; min-height: 44px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+        ユーザーを登録する
+      </a>
+    </fieldset>
+
+    <section aria-label="プレビュー" style="display: flex; flex-direction: column; gap: 10px">
+      <span style="font-size: 13px; font-weight: 800; color: #5B6158">リストでの表示</span>
+      <div style="background: #FFFFFF; border: 1px dashed #B9BDB2; border-radius: 20px; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px">
+        <span style="font-size: 17px; font-weight: 800">{{previewName}}</span>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px 14px; min-height: 56px">
+          <sc-for list="{{chosen}}" as="c" hint-placeholder-count="2">
+            <span style="width: 56px; height: 56px; border-radius: 999px; color: #FFFFFF; font-size: 20px; font-weight: 800; display: flex; align-items: center; justify-content: center; background: {{c.color}}">{{c.initial}}</span>
+          </sc-for>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 12px 20px 28px; background: #F3F4EF; border-top: 1px solid #E2E4DC">
+    <a href="Main.dc.html" style="height: 56px; border-radius: 16px; background: #1D211C; color: #FFFFFF; font-size: 16px; font-weight: 800; display: flex; align-items: center; justify-content: center; text-decoration: none">リストに登録する</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+var USERS = [
+  { id: 'me',   name: '自分', initial: '自', color: '#2563C9' },
+  { id: 'wife', name: '妻',   initial: '妻', color: '#B8551C' },
+  { id: 'son',  name: '息子', initial: '息', color: '#1A7F50' },
+  { id: 'col',  name: '同僚', initial: '同', color: '#7F49C0' }
+];
+var SUGGEST = ['洗濯', '掃除', 'ゴミ出し', '朝食準備', '皿洗い', 'お風呂そうじ', '買い出し'];
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { name: 'お風呂そうじ', sel: { me: true, son: true } };
+  }
+  renderVals() {
+    var self = this;
+    var sel = this.state.sel;
+    return {
+      name: this.state.name,
+      onName: function (e) { self.setState({ name: e.target.value }); },
+      previewName: this.state.name || '項目名',
+      suggest: SUGGEST.map(function (s) {
+        return { label: s, pick: function () { self.setState({ name: s }); } };
+      }),
+      users: USERS.map(function (u) {
+        var on = !!sel[u.id];
+        return {
+          name: u.name, initial: u.initial, color: u.color, on: on,
+          pressed: on ? 'true' : 'false',
+          border: on ? u.color : '#E2E4DC',
+          checkBg: on ? u.color : '#FFFFFF',
+          checkBorder: on ? u.color : '#B9BDB2',
+          toggle: function () {
+            var next = Object.assign({}, self.state.sel);
+            next[u.id] = !next[u.id];
+            self.setState({ sel: next });
+          }
+        };
+      }),
+      chosen: USERS.filter(function (u) { return sel[u.id]; })
+    };
+  }
+}
+</script>
+</body>
+</html>

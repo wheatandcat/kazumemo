@@ -1,0 +1,17 @@
+{
+  "name": "かずメモ",
+  "short_name": "かずメモ",
+  "description": "月ごとに、誰が何を何回やったかをかんたんにカウント",
+  "lang": "ja",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F3F4EF",
+  "theme_color": "#F3F4EF",
+  "icons": [
+    { "src": "/pwa-192x192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/pwa-512x512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/maskable-icon-512x512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

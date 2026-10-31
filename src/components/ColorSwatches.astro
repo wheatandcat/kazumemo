@@ -1,0 +1,19 @@
+---
+import { COLORS } from '../lib/colors';
+
+interface Props {
+  name: string;
+}
+
+const { name } = Astro.props;
+---
+
+<div class="swatches" role="radiogroup" aria-label="アイコンの色">
+  {
+    COLORS.map((c) => (
+      <label class="swatch" style={`--c: ${c.color}`}>
+        <input type="radio" name={name} value={c.color} aria-label={c.label} />
+      </label>
+    ))
+  }
+</div>

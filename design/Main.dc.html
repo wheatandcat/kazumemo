@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>かずメモ リスト</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#1D211C}a:hover{color:#000}
+button{font-family:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #F3F4EF; color: #1D211C; font-family: 'M PLUS Rounded 1c', system-ui, sans-serif; position: relative; overflow: hidden">
+  <header style="padding: 20px 20px 12px; display: flex; flex-direction: column; gap: 14px">
+    <div style="display: flex; align-items: center; justify-content: space-between">
+      <h1 style="margin: 0; font-size: 24px; font-weight: 800; letter-spacing: 0.02em">かずメモ</h1>
+      <div style="display: flex; align-items: center; gap: 4px; background: #FFFFFF; border: 1px solid #E2E4DC; border-radius: 999px; padding: 4px">
+        <button aria-label="前の月" onClick="{{prevMonth}}" style="width: 36px; height: 36px; border: none; background: transparent; border-radius: 999px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #1D211C">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg>
+        </button>
+        <span style="font-size: 15px; font-weight: 700; min-width: 96px; text-align: center">{{monthLabel}}</span>
+        <button aria-label="次の月" onClick="{{nextMonth}}" style="width: 36px; height: 36px; border: none; background: transparent; border-radius: 999px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #1D211C">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+        </button>
+      </div>
+    </div>
+    <p style="margin: 0; font-size: 13px; color: #5B6158; display: flex; align-items: center; gap: 8px">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11V5a2 2 0 0 1 4 0v6"></path><path d="M13 10.5V9a2 2 0 0 1 4 0v3.5"></path><path d="M9 11.5V10a2 2 0 0 0-4 0v4a7 7 0 0 0 7 7h1a6 6 0 0 0 6-6v-3"></path></svg>
+      タップで <b style="color: #1D211C">+1</b>・長押しで <b style="color: #1D211C">−1</b>
+    </p>
+  </header>
+
+  <main style="flex: 1; overflow-y: auto; padding: 4px 16px 120px; display: flex; flex-direction: column; gap: 12px">
+    <sc-for list="{{items}}" as="item" hint-placeholder-count="5">
+      <section style="background: #FFFFFF; border: 1px solid #E2E4DC; border-radius: 20px; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px">
+          <a href="ItemDetail.dc.html" style="text-decoration: none; display: flex; align-items: center; gap: 4px; font-size: 17px; font-weight: 800; min-height: 32px">
+            {{item.name}}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8A9086" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+          </a>
+          <span style="font-size: 13px; color: #5B6158">計 <b style="font-size: 18px; color: #1D211C">{{item.total}}</b> 回</span>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px 14px">
+          <sc-for list="{{item.members}}" as="m" hint-placeholder-count="3">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; width: 60px">
+              <button aria-label="{{m.label}}" onPointerDown="{{m.down}}" onPointerUp="{{m.up}}" onPointerLeave="{{m.cancel}}" onPointerCancel="{{m.cancel}}" onClick="{{m.key}}" onContextMenu="{{m.ctx}}" style="position: relative; width: 56px; height: 56px; border-radius: 999px; border: none; cursor: pointer; color: #FFFFFF; font-size: 20px; font-weight: 800; display: flex; align-items: center; justify-content: center; touch-action: manipulation; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; transition: transform 140ms ease, box-shadow 140ms ease; background: {{m.color}}; transform: scale({{m.scale}}); box-shadow: 0 0 0 {{m.ring}}px {{m.ringColor}}">
+                {{m.initial}}
+                <span style="position: absolute; top: -6px; right: -8px; min-width: 26px; height: 26px; padding: 0 6px; box-sizing: border-box; border-radius: 999px; background: #FFFFFF; border: 2px solid {{m.color}}; color: {{m.color}}; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">{{m.count}}</span>
+              </button>
+              <span style="font-size: 12px; color: #5B6158; font-weight: 700">{{m.name}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+    </sc-for>
+  </main>
+
+  <sc-if value="{{toast}}" hint-placeholder-val="{{ false }}">
+    <div role="status" style="position: absolute; left: 50%; bottom: 104px; transform: translateX(-50%); background: #1D211C; color: #FFFFFF; font-size: 14px; font-weight: 700; padding: 10px 18px; border-radius: 999px; white-space: nowrap">{{toastText}}</div>
+  </sc-if>
+
+  <nav aria-label="メイン" style="position: absolute; left: 0; right: 0; bottom: 0; height: 84px; background: #FFFFFF; border-top: 1px solid #E2E4DC; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; padding-bottom: 8px; box-sizing: border-box">
+    <a href="Main.dc.html" aria-current="page" style="text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 800; color: #1D211C; min-height: 44px; justify-content: center">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h12"></path><path d="M8 12h12"></path><path d="M8 18h12"></path><circle cx="4" cy="6" r="1"></circle><circle cx="4" cy="12" r="1"></circle><circle cx="4" cy="18" r="1"></circle></svg>
+      リスト
+    </a>
+    <div style="display: flex; justify-content: center">
+      <a href="AddItem.dc.html" aria-label="項目を追加" style="width: 60px; height: 60px; border-radius: 999px; background: #1D211C; color: #FFFFFF; display: flex; align-items: center; justify-content: center; margin-top: -28px; box-shadow: 0 6px 16px rgba(29,33,28,0.25)">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+      </a>
+    </div>
+    <a href="Users.dc.html" style="text-decoration: none; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: #5B6158; min-height: 44px; justify-content: center">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0"></path><path d="M16 4.5a3.5 3.5 0 0 1 0 7"></path><path d="M18 14.5a6.5 6.5 0 0 1 3.5 5.5"></path></svg>
+      ユーザー
+    </a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+var USERS = {
+  me:   { name: '自分', initial: '自', color: '#2563C9' },
+  wife: { name: '妻',   initial: '妻', color: '#B8551C' },
+  son:  { name: '息子', initial: '息', color: '#1A7F50' },
+  col:  { name: '同僚', initial: '同', color: '#7F49C0' }
+};
+var ITEMS = [
+  { id: 'wash',   name: '洗濯',       users: ['me', 'wife'] },
+  { id: 'bfast',  name: '朝食準備',   users: ['me', 'wife'] },
+  { id: 'trash',  name: 'ゴミ出し',   users: ['me', 'son'] },
+  { id: 'dish',   name: '皿洗い',     users: ['me', 'wife', 'son'] },
+  { id: 'clean',  name: '掃除',       users: ['me', 'wife', 'son'] },
+  { id: 'report', name: '議事録づくり', users: ['me', 'col'] }
+];
+var BASE = {
+  wash:   { me: 6, wife: 14 },
+  bfast:  { me: 4, wife: 22 },
+  trash:  { me: 8, son: 5 },
+  dish:   { me: 9, wife: 12, son: 6 },
+  clean:  { me: 3, wife: 5, son: 2 },
+  report: { me: 3, col: 5 }
+};
+function seed(offset) {
+  var out = {};
+  ITEMS.forEach(function (it, i) {
+    out[it.id] = {};
+    it.users.forEach(function (u, j) {
+      var b = BASE[it.id][u] || 0;
+      if (offset === 0) out[it.id][u] = b;
+      else if (offset > 0) out[it.id][u] = 0;
+      else out[it.id][u] = Math.max(0, Math.round(b * (0.6 + ((-offset * 7 + i * 3 + j) % 5) * 0.15)));
+    });
+  });
+  return out;
+}
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { offset: 0, counts: { '0': seed(0) }, flash: null, toast: null };
+    this.timer = null;
+  }
+  componentWillUnmount() {
+    clearTimeout(this.timer); clearTimeout(this.flashT); clearTimeout(this.toastT);
+  }
+  monthCounts() {
+    var k = String(this.state.offset);
+    return this.state.counts[k] || seed(this.state.offset);
+  }
+  shift(d) {
+    var off = this.state.offset + d;
+    var counts = Object.assign({}, this.state.counts);
+    if (!counts[String(off)]) counts[String(off)] = seed(off);
+    this.setState({ offset: off, counts: counts });
+  }
+  bump(itemId, userId, delta) {
+    var k = String(this.state.offset);
+    var cur = this.monthCounts();
+    var next = JSON.parse(JSON.stringify(cur));
+    var v = (next[itemId][userId] || 0) + delta;
+    if (v < 0) return;
+    next[itemId][userId] = v;
+    var counts = Object.assign({}, this.state.counts);
+    counts[k] = next;
+    var item = ITEMS.filter(function (x) { return x.id === itemId; })[0];
+    var text = USERS[userId].name + '・' + item.name + (delta > 0 ? ' +1' : ' −1') + '（' + v + '回）';
+    this.setState({ counts: counts, flash: { key: itemId + ':' + userId, delta: delta }, toast: text });
+    clearTimeout(this.flashT);
+    this.flashT = setTimeout(() => this.setState({ flash: null }), 220);
+    clearTimeout(this.toastT);
+    this.toastT = setTimeout(() => this.setState({ toast: null }), 1600);
+  }
+  renderVals() {
+    var self = this;
+    var now = new Date(2026, 9 + this.state.offset, 1);
+    var counts = this.monthCounts();
+    var flash = this.state.flash;
+    var items = ITEMS.map(function (it) {
+      var total = 0;
+      var members = it.users.map(function (u) {
+        var usr = USERS[u];
+        var c = counts[it.id][u] || 0;
+        total += c;
+        var key = it.id + ':' + u;
+        var hit = flash && flash.key === key;
+        return {
+          name: usr.name, initial: usr.initial, color: usr.color, count: c,
+          label: usr.name + '：' + it.name + ' ' + c + '回。タップで1回追加、長押しで1回減らす',
+          scale: hit ? (flash.delta > 0 ? 1.12 : 0.88) : 1,
+          ring: hit ? 4 : 0,
+          ringColor: hit ? (flash.delta > 0 ? usr.color + '40' : '#1D211C33') : 'transparent',
+          down: function () {
+            clearTimeout(self.timer);
+            self.timer = setTimeout(function () {
+              self.timer = null;
+              if (navigator.vibrate) navigator.vibrate(30);
+              self.bump(it.id, u, -1);
+            }, 500);
+          },
+          up: function () {
+            if (self.timer) { clearTimeout(self.timer); self.timer = null; self.bump(it.id, u, 1); }
+          },
+          cancel: function () { clearTimeout(self.timer); self.timer = null; },
+          key: function (e) { if (e.detail === 0) self.bump(it.id, u, 1); },
+          ctx: function (e) { e.preventDefault(); }
+        };
+      });
+      return { name: it.name, total: total, members: members };
+    });
+    return {
+      items: items,
+      monthLabel: now.getFullYear() + '年' + (now.getMonth() + 1) + '月',
+      prevMonth: function () { self.shift(-1); },
+      nextMonth: function () { self.shift(1); },
+      toast: !!this.state.toast,
+      toastText: this.state.toast || ''
+    };
+  }
+}
+</script>
+</body>
+</html>

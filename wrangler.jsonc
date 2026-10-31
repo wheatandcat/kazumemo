@@ -1,0 +1,11 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "kazumemo",
+  "compatibility_date": "2026-10-23",
+  // Astro の静的ビルド結果をそのまま配信する（Worker スクリプトなし）
+  "assets": {
+    "directory": "./dist",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+}

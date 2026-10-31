@@ -1,0 +1,229 @@
+---
+import ColorSwatches from '../../components/ColorSwatches.astro';
+import Icon from '../../components/Icon.astro';
+import Sheet from '../../components/Sheet.astro';
+import Base from '../../layouts/Base.astro';
+---
+
+<Base title="ユーザー詳細 | かずメモ">
+  <header class="bar">
+    <a href="/users/" class="bar-btn" aria-label="戻る">
+      <Icon name="chevron-left" size={22} stroke={2.2} />
+    </a>
+    <h1>ユーザー詳細</h1>
+    <button type="button" class="bar-btn" aria-label="ユーザーを編集" id="edit-btn" hidden>
+      <Icon name="edit" size={20} />
+    </button>
+  </header>
+
+  <main class="content">
+    <div class="empty" id="missing" hidden>
+      <h2>ユーザーが見つかりません</h2>
+      <p>削除された可能性があります。</p>
+      <a class="btn-primary" href="/users/">ユーザー一覧へ</a>
+    </div>
+
+    <div id="detail" style="display: contents" hidden>
+      <section class="profile">
+        <span class="avatar" style="--s: 72px" id="avatar"></span>
+        <div class="profile-text">
+          <span class="profile-name" id="name"></span>
+          <span class="sub" id="sub"></span>
+        </div>
+      </section>
+
+      <section class="card stats">
+        <div class="stat">
+          <span class="stat-label" id="total-label"></span>
+          <span class="stat-value"><b id="total"></b><span>回</span></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">先月との差</span>
+          <span class="stat-value"><b id="diff"></b><span>回</span></span>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2 class="card-title">項目別のカウント</h2>
+          <div class="tabs" role="tablist" aria-label="期間">
+            <button type="button" class="tab" role="tab" data-tab="month" aria-selected="true">今月</button>
+            <button type="button" class="tab" role="tab" data-tab="prev" aria-selected="false">先月</button>
+          </div>
+        </div>
+        <div class="hbars" role="img" id="hbars"></div>
+        <p class="note" id="hbars-empty" hidden>参加している項目はありません。</p>
+      </section>
+
+      <section class="card">
+        <h2 class="card-title">月ごとの合計</h2>
+        <div class="vbars" role="img" id="vbars"></div>
+        <div class="axis-labels" id="vbars-labels" aria-hidden="true"></div>
+      </section>
+    </div>
+  </main>
+
+  <Sheet id="edit-sheet" title="ユーザーを編集">
+    <form class="sheet-form" id="edit-form" novalidate>
+      <div class="field">
+        <label for="edit-name" class="field-label">名前</label>
+        <input id="edit-name" class="text-input" type="text" maxlength="20" autocomplete="off" />
+      </div>
+      <div class="field">
+        <span class="field-label">アイコンの色</span>
+        <ColorSwatches name="edit-color" />
+      </div>
+      <button type="submit" class="btn-primary btn-block" id="save-btn">保存する</button>
+      <button type="button" class="btn-danger" id="delete-btn">このユーザーを削除</button>
+    </form>
+  </Sheet>
+
+  <template id="tpl-hbar">
+    <div class="hbar">
+      <span class="hbar-name" data-part="name"></span>
+      <span class="track"><span class="fill" data-part="fill"></span></span>
+      <span class="hbar-value" data-part="value"></span>
+    </div>
+  </template>
+
+  <template id="tpl-vbar">
+    <div class="vbar">
+      <span class="vbar-value" data-part="value"></span>
+      <span class="vbar-col" data-part="col"></span>
+    </div>
+  </template>
+</Base>
+
+<script>
+  import { addMonths, getSelectedMonth, monthLabel, recentMonths, shortMonthLabel } from '../../lib/month';
+  import { bindDangerButton, byId, fromTemplate, initialOf, part, setColor } from '../../lib/render';
+  import { countOf, deleteUser, itemsOf, updateUser, userTotal, watch, type Snapshot, type User } from '../../lib/repo';
+
+  const id = new URLSearchParams(location.search).get('id') ?? '';
+  const month = getSelectedMonth();
+  const prevMonth = addMonths(month, -1);
+  const months = recentMonths(month, 6);
+  const sheet = byId<HTMLDialogElement>('edit-sheet');
+  const editForm = byId<HTMLFormElement>('edit-form');
+  const editName = byId<HTMLInputElement>('edit-name');
+  let tab: 'month' | 'prev' = 'month';
+  let snap: Snapshot | null = null;
+  let user: User | undefined;
+
+  function signed(n: number): string {
+    if (n > 0) return `+${n}`;
+    if (n < 0) return `−${-n}`;
+    return '±0';
+  }
+
+  function renderItems(s: Snapshot, u: User) {
+    const target = tab === 'month' ? month : prevMonth;
+    const rows = itemsOf(s, u)
+      .map((item) => ({ name: item.name, value: countOf(s, target, item.id, u.id) }))
+      .sort((a, b) => b.value - a.value);
+    const max = Math.max(1, ...rows.map((r) => r.value));
+    const box = byId('hbars');
+    box.hidden = rows.length === 0;
+    byId('hbars-empty').hidden = rows.length > 0;
+    box.setAttribute('aria-label', `項目別のカウント（${monthLabel(target)}）：${rows.map((r) => `${r.name} ${r.value}回`).join('、')}`);
+    box.replaceChildren(
+      ...rows.map((r) => {
+        const row = fromTemplate('tpl-hbar');
+        part(row, 'name').textContent = r.name;
+        part(row, 'fill').style.width = `${Math.round((r.value / max) * 100)}%`;
+        part(row, 'value').textContent = String(r.value);
+        return row;
+      }),
+    );
+    for (const t of document.querySelectorAll<HTMLButtonElement>('[data-tab]')) {
+      t.setAttribute('aria-selected', String(t.dataset.tab === tab));
+    }
+  }
+
+  function renderTrend(s: Snapshot, u: User) {
+    const values = months.map((m) => userTotal(s, m, u));
+    const max = Math.max(1, ...values);
+    const box = byId('vbars');
+    box.setAttribute('aria-label', `月ごとの合計：${months.map((m, i) => `${shortMonthLabel(m)} ${values[i]}回`).join('、')}`);
+    box.replaceChildren(
+      ...values.map((v, i) => {
+        const bar = fromTemplate('tpl-vbar');
+        bar.classList.toggle('is-current', i === months.length - 1);
+        part(bar, 'value').textContent = String(v);
+        part(bar, 'col').style.height = `${Math.round((v / max) * 130)}px`;
+        return bar;
+      }),
+    );
+    byId('vbars-labels').replaceChildren(
+      ...months.map((m, i) => {
+        const label = document.createElement('span');
+        label.textContent = shortMonthLabel(m);
+        label.classList.toggle('is-current', i === months.length - 1);
+        return label;
+      }),
+    );
+  }
+
+  function render() {
+    if (!snap) return;
+    user = snap.users.find((u) => u.id === id);
+    byId('missing').hidden = !!user;
+    byId('detail').hidden = !user;
+    byId('edit-btn').hidden = !user;
+    if (!user) return;
+
+    setColor(byId('detail'), user.color);
+    const av = byId('avatar');
+    setColor(av, user.color);
+    av.textContent = initialOf(user.name);
+    byId('name').textContent = user.name;
+    byId('sub').textContent = `${itemsOf(snap, user).length}つの項目をカウント中`;
+
+    const total = userTotal(snap, month, user);
+    byId('total-label').textContent = `${monthLabel(month)}の合計`;
+    byId('total').textContent = String(total);
+    byId('diff').textContent = signed(total - userTotal(snap, prevMonth, user));
+
+    renderItems(snap, user);
+    renderTrend(snap, user);
+  }
+
+  for (const t of document.querySelectorAll<HTMLButtonElement>('[data-tab]')) {
+    t.addEventListener('click', () => {
+      tab = t.dataset.tab === 'prev' ? 'prev' : 'month';
+      render();
+    });
+  }
+
+  // ---- 編集シート ----
+  const resetDelete = bindDangerButton(byId<HTMLButtonElement>('delete-btn'), async () => {
+    await deleteUser(id);
+    location.replace('/users/');
+  });
+
+  byId('edit-btn').addEventListener('click', () => {
+    if (!user) return;
+    editName.value = user.name;
+    for (const radio of editForm.querySelectorAll<HTMLInputElement>('input[name="edit-color"]')) {
+      radio.checked = radio.value === user.color;
+    }
+    sheet.showModal();
+  });
+  sheet.addEventListener('close', resetDelete);
+  editName.addEventListener('input', () => {
+    byId<HTMLButtonElement>('save-btn').disabled = !editName.value.trim();
+  });
+  editForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = editName.value.trim();
+    if (!name) return;
+    const color = editForm.querySelector<HTMLInputElement>('input[name="edit-color"]:checked')?.value;
+    await updateUser(id, color ? { name, color } : { name });
+    sheet.close();
+  });
+
+  watch(months, (s) => {
+    snap = s;
+    render();
+  });
+</script>

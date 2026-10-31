@@ -1,0 +1,33 @@
+---
+import Icon from './Icon.astro';
+
+interface Props {
+  id: string;
+  title: string;
+}
+
+const { id, title } = Astro.props;
+---
+
+<dialog class="sheet" id={id} aria-labelledby={`${id}-title`}>
+  <div class="sheet-inner">
+    <div class="sheet-head">
+      <span></span>
+      <h2 id={`${id}-title`}>{title}</h2>
+      <button type="button" class="bar-btn" aria-label="閉じる" data-sheet-close>
+        <Icon name="close" size={22} stroke={2.2} />
+      </button>
+    </div>
+    <slot />
+  </div>
+</dialog>
+
+<script>
+  for (const dialog of document.querySelectorAll<HTMLDialogElement>('dialog.sheet')) {
+    dialog.querySelector('[data-sheet-close]')?.addEventListener('click', () => dialog.close());
+    // 背景（dialog 自身）をタップしたら閉じる
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) dialog.close();
+    });
+  }
+</script>

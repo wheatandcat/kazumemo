@@ -1,0 +1,25 @@
+{
+  "name": "kazumemo",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro check && astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "generate-pwa-assets": "pwa-assets-generator",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.12",
+    "@vite-pwa/assets-generator": "^2.0.0",
+    "typescript": "^6.0.3",
+    "workbox-build": "^7.4.1",
+    "wrangler": "^4.156.0"
+  },
+  "dependencies": {
+    "astro": "^7.3.8",
+    "dexie": "^4.4.7"
+  }
+}

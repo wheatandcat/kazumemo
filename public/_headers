@@ -1,0 +1,5 @@
+# Service Worker と manifest は常に最新を取りに行かせる（更新がすぐ端末に届くように）
+/sw.js
+  Cache-Control: no-cache
+/manifest.webmanifest
+  Cache-Control: no-cache
