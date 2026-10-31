@@ -18,6 +18,8 @@ export type Item = SyncFields & {
   id: string;
   name: string;
   userIds: string[];
+  /** リストでの並び順（小さいほど上） */
+  sortOrder: number;
 };
 
 /** カウントの増減1回分。回数はイベントの delta の合計で求める（端末間でマージしても競合しない） */
@@ -45,9 +47,23 @@ export const db = new Dexie('kazumemo') as Dexie & {
   meta: EntityTable<Meta, 'key'>;
 };
 
-db.version(1).stores({
+const stores = {
   users: 'id, updatedAt, syncedAt',
   items: 'id, updatedAt, syncedAt',
   events: 'id, month, [month+itemId], [month+userId], syncedAt',
   meta: 'key',
-});
+};
+
+db.version(1).stores(stores);
+
+// v2: 項目に sortOrder を追加。既存の項目は作成順で並べる
+db.version(2)
+  .stores(stores)
+  .upgrade((tx) =>
+    tx
+      .table<Item>('items')
+      .toCollection()
+      .modify((item) => {
+        item.sortOrder ??= item.createdAt;
+      }),
+  );

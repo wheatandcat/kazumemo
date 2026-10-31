@@ -607,6 +607,31 @@ a {
 .item-card {
   gap: 12px;
   padding: 14px 16px 16px;
+  /* 長押しで並び替えるため、リンクのプレビューや文字選択を出さない */
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+
+/* 短いタップでは変化させず、押し続けたときだけ沈ませる */
+.item-card.is-holding {
+  transform: scale(0.98);
+  transition-delay: 150ms;
+}
+
+.item-card.is-dragging {
+  transform: scale(1.02);
+  box-shadow: 0 12px 28px rgb(29 33 28 / 0.18);
+  transition: none;
+}
+
+.sort-placeholder {
+  flex-shrink: 0;
+  border: 2px dashed var(--dash);
+  border-radius: 20px;
 }
 
 .item-head {

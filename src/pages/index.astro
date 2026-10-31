@@ -71,13 +71,39 @@ import Base from '../layouts/Base.astro';
   import { bindCounter } from '../lib/longpress';
   import { MONTH_EVENT, getSelectedMonth } from '../lib/month';
   import { byId, fromTemplate, initialOf, part, setColor } from '../lib/render';
-  import { bump, countOf, itemTotal, membersOf, watch, type Item, type Snapshot, type User } from '../lib/repo';
+  import {
+    bump,
+    countOf,
+    itemTotal,
+    membersOf,
+    reorderItems,
+    watch,
+    type Item,
+    type Snapshot,
+    type User,
+  } from '../lib/repo';
+  import { bindSortable } from '../lib/sortable';
   import { toast } from '../lib/toast';
 
   const list = byId('list');
   let month = getSelectedMonth();
   let structure = '';
   let stop = () => {};
+  let pending: Snapshot | null = null;
+
+  // カードの長押し（アイコン以外）で並び替え。アイコンの長押しは −1 なので対象外にする
+  const isDragging = bindSortable(list, {
+    item: '.item-card',
+    ignore: '.counter',
+    idOf: (el) => el.dataset.item ?? '',
+    bottomInset: () => document.querySelector('.nav')?.getBoundingClientRect().height ?? 0,
+    onEnd: (ids) => {
+      // ドラッグ中に届いた更新を反映してから並び順を保存する
+      if (pending) render(pending);
+      pending = null;
+      reorderItems(ids);
+    },
+  });
   const flashTimers = new WeakMap<HTMLElement, number>();
 
   function flash(btn: HTMLElement, delta: 1 | -1) {
@@ -149,6 +175,10 @@ import Base from '../layouts/Base.astro';
   }
 
   function render(s: Snapshot) {
+    if (isDragging()) {
+      pending = s;
+      return;
+    }
     const key = JSON.stringify([
       s.users.map((u) => [u.id, u.name, u.color]),
       s.items.map((i) => [i.id, i.name, i.userIds]),

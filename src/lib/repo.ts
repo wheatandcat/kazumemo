@@ -73,7 +73,7 @@ async function query(months: string[]): Promise<Snapshot> {
     ((counts[month] ??= {})[itemId] ??= {})[userId] = stack.length;
     ((daily[month] ??= {})[itemId] ??= {})[userId] = days;
   }
-  return { users: alive(users), items: alive(items), counts, daily };
+  return { users: alive(users), items: alive(items).sort((a, b) => a.sortOrder - b.sortOrder), counts, daily };
 }
 
 /** 指定した月のカウントを含むスナップショットを1回だけ取得する */
@@ -147,7 +147,28 @@ export async function deleteUser(id: string): Promise<void> {
 
 export async function addItem(name: string, userIds: string[]): Promise<void> {
   const t = Date.now();
-  await db.items.add({ id: uuid(), name, userIds, createdAt: t, updatedAt: t, deletedAt: null, syncedAt: 0 });
+  // 並び替え後の sortOrder は 0, 1, 2... になるので、時刻を入れておけば新しい項目は常に末尾に来る
+  await db.items.add({
+    id: uuid(),
+    name,
+    userIds,
+    sortOrder: t,
+    createdAt: t,
+    updatedAt: t,
+    deletedAt: null,
+    syncedAt: 0,
+  });
+}
+
+/** ids の順にリストを並べ替える。順番が変わった項目だけ更新する */
+export async function reorderItems(ids: string[]): Promise<void> {
+  const t = Date.now();
+  await db.transaction('rw', db.items, async () => {
+    for (const [i, id] of ids.entries()) {
+      const item = await db.items.get(id);
+      if (item && item.sortOrder !== i) await db.items.update(id, { sortOrder: i, updatedAt: t, syncedAt: 0 });
+    }
+  });
 }
 
 export async function updateItem(id: string, patch: Partial<Pick<Item, 'name' | 'userIds'>>): Promise<void> {
