@@ -20,6 +20,14 @@ export type Item = SyncFields & {
   userIds: string[];
   /** リストでの並び順（小さいほど上） */
   sortOrder: number;
+  tagIds: string[];
+};
+
+export type Tag = SyncFields & {
+  id: string;
+  name: string;
+  /** タグ一覧での並び順（小さいほど左） */
+  sortOrder: number;
 };
 
 /** カウントの増減1回分。回数はイベントの delta の合計で求める（端末間でマージしても競合しない） */
@@ -43,6 +51,7 @@ export type Meta = {
 export const db = new Dexie('kazumemo') as Dexie & {
   users: EntityTable<User, 'id'>;
   items: EntityTable<Item, 'id'>;
+  tags: EntityTable<Tag, 'id'>;
   events: EntityTable<CountEvent, 'id'>;
   meta: EntityTable<Meta, 'key'>;
 };
@@ -65,5 +74,17 @@ db.version(2)
       .toCollection()
       .modify((item) => {
         item.sortOrder ??= item.createdAt;
+      }),
+  );
+
+// v3: タグを追加。既存の項目はタグなしにする
+db.version(3)
+  .stores({ ...stores, tags: 'id, updatedAt, syncedAt' })
+  .upgrade((tx) =>
+    tx
+      .table<Item>('items')
+      .toCollection()
+      .modify((item) => {
+        item.tagIds ??= [];
       }),
   );

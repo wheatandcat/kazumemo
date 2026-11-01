@@ -13,6 +13,7 @@
   --danger: #b42318;
   --font: 'M PLUS Rounded 1c', system-ui, sans-serif;
   --nav-h: 84px;
+  --tagbar-h: 65px;
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
   color-scheme: light;
@@ -71,7 +72,8 @@ a {
 
 /* 画面下に固定する要素は .app と同じ幅で中央に置く */
 .nav,
-.footer-cta {
+.footer-cta,
+.tagbar {
   position: fixed;
   left: 0;
   right: 0;
@@ -79,6 +81,15 @@ a {
   z-index: 10;
   max-width: 430px;
   margin: 0 auto;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 @media (min-width: 431px) {
@@ -97,6 +108,10 @@ a {
 
 .content.with-nav {
   padding-bottom: calc(var(--nav-h) + 36px + var(--safe-b));
+}
+
+.content.with-nav.with-tagbar {
+  padding-bottom: calc(var(--nav-h) + var(--tagbar-h) + 36px + var(--safe-b));
 }
 
 .content.with-cta {
@@ -258,6 +273,215 @@ a {
   background: var(--ink);
   color: #fff;
   box-shadow: 0 6px 16px rgb(29 33 28 / 0.25);
+}
+
+/* ---- タグ ---- */
+
+/* 編集ボタン（先頭）とタグを一緒に横スクロールさせる */
+.tagbar {
+  bottom: calc(var(--nav-h) + var(--safe-b));
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  height: var(--tagbar-h);
+  border-top: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.tagbar-scroll {
+  /* 選択中のタグまでスクロールするとき、offsetLeft の基準にする */
+  position: relative;
+  display: flex;
+  flex: 1;
+  /* flex の子は min-width: auto だと中身の幅まで広がりスクロールしないため 0 にする */
+  min-width: 0;
+  gap: 8px;
+  padding: 10px 16px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+  scrollbar-width: none;
+}
+
+.tagbar-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.tagbar-chips {
+  display: flex;
+  gap: 8px;
+}
+
+/* マウス操作の端末では、横にスクロールできることが分かるよう細いスクロールバーを出す */
+@media (hover: hover) and (pointer: fine) {
+  .tagbar-scroll {
+    padding-bottom: 6px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+    cursor: grab;
+  }
+
+  .tagbar-scroll::-webkit-scrollbar {
+    display: block;
+    height: 6px;
+  }
+
+  .tagbar-scroll::-webkit-scrollbar-thumb {
+    border-radius: 3px;
+    background: var(--line-strong);
+  }
+}
+
+.tag-chip,
+.tag-toggle {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tag-chip {
+  height: 44px;
+}
+
+.tag-chip[aria-pressed='true'],
+.tag-toggle[aria-pressed='true'] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: #fff;
+}
+
+.tag-chip-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.tag-chip[aria-pressed='true'] .tag-chip-count {
+  color: var(--line-strong);
+}
+
+.tag-edit-btn {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px dashed #a3a89d;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+/* タグバーがある画面ではトーストをタグバーの上に出す */
+.tagbar ~ .toast {
+  bottom: calc(var(--nav-h) + var(--tagbar-h) + 16px + var(--safe-b));
+}
+
+.tag-toggle {
+  height: 40px;
+  padding: 0 14px;
+  border-color: var(--axis);
+}
+
+.tag-toggle svg {
+  display: none;
+}
+
+.tag-toggle[aria-pressed='true'] svg {
+  display: block;
+}
+
+.tag-new {
+  display: flex;
+  gap: 8px;
+}
+
+.tag-new .text-input {
+  flex: 1;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 15px;
+}
+
+.btn-outline {
+  flex-shrink: 0;
+  height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--ink);
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.tag-edit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tag-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tag-edit-row .text-input {
+  flex: 1;
+  background: var(--surface);
+}
+
+.btn-chip-danger {
+  flex-shrink: 0;
+  min-width: 76px;
+  height: 48px;
+  padding: 0 12px;
+  border: 1px solid #f1c9c4;
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.btn-chip-danger[data-armed] {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #fff;
+}
+
+.mini-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mini-tag {
+  display: flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: var(--track);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
 }
 
 /* ---- 共通パーツ ---- */

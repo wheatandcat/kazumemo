@@ -55,6 +55,11 @@ const ogImage = new URL('/ogp.png', Astro.site);
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js');
         });
+      } else if ('serviceWorker' in navigator) {
+        // 開発中は preview などで登録された Service Worker が古いビルドを返さないよう解除する
+        navigator.serviceWorker.getRegistrations().then((regs) => {
+          for (const reg of regs) reg.unregister();
+        });
       }
       // ブラウザの容量逼迫時に IndexedDB が消されないよう永続化を求める
       navigator.storage?.persist?.();

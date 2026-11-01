@@ -2,6 +2,8 @@
 import BottomNav from '../components/BottomNav.astro';
 import Icon from '../components/Icon.astro';
 import MonthSwitcher from '../components/MonthSwitcher.astro';
+import Sheet from '../components/Sheet.astro';
+import TagToggleTemplate from '../components/TagToggleTemplate.astro';
 import Toast from '../components/Toast.astro';
 import Base from '../layouts/Base.astro';
 ---
@@ -18,10 +20,66 @@ import Base from '../layouts/Base.astro';
     </p>
   </header>
 
-  <main class="content with-nav" id="list" aria-label="カウントする項目"></main>
+  <main class="content with-nav with-tagbar" id="list" aria-label="カウントする項目"></main>
 
+  <div class="tagbar">
+    <div class="tagbar-scroll" role="toolbar" aria-label="タグで絞り込み" id="tag-scroll">
+      <button type="button" class="tag-edit-btn" aria-label="タグを編集" id="tag-edit-btn">
+        <Icon name="edit" size={18} />
+      </button>
+      <div class="tagbar-chips" id="tag-chips"></div>
+    </div>
+  </div>
   <Toast />
   <BottomNav active="list" />
+
+  <Sheet id="tag-sheet" title="タグを編集">
+    <div class="tag-edit-list" id="tag-edit-list"></div>
+    <form class="tag-new" id="tag-new-form" novalidate>
+      <label for="tag-new-name" class="visually-hidden">新しいタグ</label>
+      <input
+        id="tag-new-name"
+        class="text-input"
+        type="text"
+        maxlength="12"
+        autocomplete="off"
+        enterkeyhint="done"
+        placeholder="新しいタグ（例：夜）"
+      />
+      <button type="submit" class="btn-primary">追加</button>
+    </form>
+    <p class="note">タグを削除しても、付いていた項目は消えません。</p>
+  </Sheet>
+
+  <Sheet id="tag-items-sheet" title="タグを付ける項目">
+    <p class="note" id="tag-items-lead"></p>
+    <div class="chips" id="tag-items"></div>
+    <button type="button" class="btn-primary btn-block" id="tag-items-apply">付ける</button>
+    <button type="button" class="btn-secondary" id="tag-items-skip">あとで</button>
+  </Sheet>
+  <TagToggleTemplate />
+
+  <template id="tpl-tag-chip">
+    <button type="button" class="tag-chip">
+      <span data-part="label"></span>
+      <span class="tag-chip-count" data-part="count"></span>
+    </button>
+  </template>
+
+  <template id="tpl-tag-edit-row">
+    <div class="tag-edit-row">
+      <input class="text-input" type="text" maxlength="12" autocomplete="off" enterkeyhint="done" data-part="input" />
+      <button type="button" class="btn-chip-danger" data-part="delete">削除</button>
+    </div>
+  </template>
+
+  <template id="tpl-empty-tag">
+    <div class="empty">
+      <h2>このタグの項目はまだありません</h2>
+      <p>項目を追加するか、項目詳細の編集からタグを付けてください。</p>
+      <a class="btn-primary" href="/items/new/">項目を追加する</a>
+    </div>
+  </template>
 
   <template id="tpl-card">
     <section class="card item-card">
@@ -68,40 +126,62 @@ import Base from '../layouts/Base.astro';
 </Base>
 
 <script>
+  import { bindHorizontalScroll } from '../lib/hscroll';
   import { bindCounter } from '../lib/longpress';
   import { MONTH_EVENT, getSelectedMonth } from '../lib/month';
-  import { byId, fromTemplate, initialOf, part, setColor } from '../lib/render';
+  import { byId, fromTemplate, initialOf, part, pressedKeys, setColor, tagToggle } from '../lib/render';
   import {
+    addTag,
+    attachTag,
     bump,
     countOf,
+    deleteTag,
     itemTotal,
+    itemsWithTag,
+    load,
     membersOf,
+    renameTag,
     reorderItems,
     watch,
     type Item,
     type Snapshot,
+    type Tag,
     type User,
   } from '../lib/repo';
   import { bindSortable } from '../lib/sortable';
+  import { getSelectedTag, setSelectedTag } from '../lib/tagFilter';
   import { toast } from '../lib/toast';
 
   const list = byId('list');
+  const tagScroll = byId('tag-scroll');
+  const tagChips = byId('tag-chips');
+  bindHorizontalScroll(tagScroll);
+  const tagbar = document.querySelector<HTMLElement>('.tagbar')!;
   let month = getSelectedMonth();
+  let selectedTag = getSelectedTag();
   let structure = '';
   let stop = () => {};
+  let snap: Snapshot | null = null;
   let pending: Snapshot | null = null;
+  let lastDragEnd = 0;
 
   // カードの長押し（アイコン以外）で並び替え。アイコンの長押しは −1 なので対象外にする
   const isDragging = bindSortable(list, {
     item: '.item-card',
     ignore: '.counter',
     idOf: (el) => el.dataset.item ?? '',
-    bottomInset: () => document.querySelector('.nav')?.getBoundingClientRect().height ?? 0,
+    // 下部ナビとタグバーの分を除いた位置から自動スクロールする
+    bottomInset: () => innerHeight - tagbar.getBoundingClientRect().top,
     onEnd: (ids) => {
+      lastDragEnd = Date.now();
       // ドラッグ中に届いた更新を反映してから並び順を保存する
       if (pending) render(pending);
       pending = null;
-      reorderItems(ids);
+      if (!snap) return;
+      // タグで絞り込み中は表示中の項目だけが並んでいるので、全体の並びの中の同じ位置に入れ直す
+      const shown = new Set(ids);
+      const queue = [...ids];
+      reorderItems(snap.items.map((i) => (shown.has(i.id) ? queue.shift()! : i.id)));
     },
   });
   const flashTimers = new WeakMap<HTMLElement, number>();
@@ -137,7 +217,12 @@ import Base from '../layouts/Base.astro';
       list.append(fromTemplate('tpl-empty-items'));
       return;
     }
-    for (const item of s.items) {
+    const visible = itemsWithTag(s, selectedTag);
+    if (visible.length === 0) {
+      list.append(fromTemplate('tpl-empty-tag'));
+      return;
+    }
+    for (const item of visible) {
       const card = fromTemplate('tpl-card');
       card.dataset.item = item.id;
       part(card, 'name').textContent = item.name;
@@ -174,14 +259,54 @@ import Base from '../layouts/Base.astro';
     }
   }
 
+  // カウントのたびに作り直すと横スクロール位置が戻るので、タグ・件数・選択が変わったときだけ作る
+  let tagBarKey = '';
+  let scrolledTag: string | null | undefined;
+  function renderTagBar(s: Snapshot) {
+    const chips = [
+      { id: null, label: 'すべて', n: s.items.length },
+      ...s.tags.map((t) => ({ id: t.id, label: t.name, n: itemsWithTag(s, t.id).length })),
+    ];
+    const key = JSON.stringify([selectedTag, chips]);
+    if (key === tagBarKey) return;
+    tagBarKey = key;
+    tagChips.replaceChildren(
+      ...chips.map((c) => {
+        const chip = fromTemplate<HTMLButtonElement>('tpl-tag-chip');
+        chip.setAttribute('aria-pressed', String(c.id === selectedTag));
+        part(chip, 'label').textContent = c.label;
+        part(chip, 'count').textContent = String(c.n);
+        chip.addEventListener('click', () => selectTag(c.id));
+        return chip;
+      }),
+    );
+    // 選択中のタグが変わったときだけ、そのタグが見える位置まで横にスクロールする
+    if (scrolledTag !== selectedTag) {
+      scrolledTag = selectedTag;
+      const chip = tagChips.querySelector<HTMLElement>('[aria-pressed="true"]');
+      // 「すべて」のときは先頭の編集ボタンまで見えるよう一番左に戻す
+      const left = selectedTag === null || !chip ? 0 : chip.offsetLeft - 16;
+      tagScroll.scrollTo({ left, behavior: 'smooth' });
+    }
+  }
+
   function render(s: Snapshot) {
+    snap = s;
     if (isDragging()) {
       pending = s;
       return;
     }
+    // 選択中のタグが削除されていたら「すべて」に戻す
+    if (selectedTag !== null && !s.tags.some((t) => t.id === selectedTag)) {
+      selectedTag = null;
+      setSelectedTag(null);
+    }
+    renderTagBar(s);
+    renderTagSheet(s);
     const key = JSON.stringify([
+      selectedTag,
       s.users.map((u) => [u.id, u.name, u.color]),
-      s.items.map((i) => [i.id, i.name, i.userIds]),
+      s.items.map((i) => [i.id, i.name, i.userIds, i.tagIds]),
     ]);
     if (key !== structure) {
       structure = key;
@@ -189,6 +314,138 @@ import Base from '../layouts/Base.astro';
     }
     update(s);
   }
+
+  function selectTag(tagId: string | null) {
+    if (tagId === selectedTag) return;
+    selectedTag = tagId;
+    setSelectedTag(tagId);
+    window.scrollTo(0, 0);
+    if (snap) render(snap);
+  }
+
+  // リストを左右にスワイプして隣のタグに切り替える
+  let swipe: { x: number; y: number } | null = null;
+  list.addEventListener(
+    'touchstart',
+    (e) => {
+      swipe = e.touches.length === 1 ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
+    },
+    { passive: true },
+  );
+  list.addEventListener('touchend', (e) => {
+    const start = swipe;
+    swipe = null;
+    if (!start || !snap || isDragging() || Date.now() - lastDragEnd < 500) return;
+    const p = e.changedTouches[0];
+    const dx = p.clientX - start.x;
+    const dy = p.clientY - start.y;
+    if (Math.abs(dx) < 60 || Math.abs(dy) > 40) return;
+    const ids = [null, ...snap.tags.map((t) => t.id)];
+    const next = ids[ids.indexOf(selectedTag) + (dx < 0 ? 1 : -1)];
+    if (next !== undefined) selectTag(next);
+  });
+
+  // ---- タグ編集シート ----
+  const tagSheet = byId<HTMLDialogElement>('tag-sheet');
+  const tagEditList = byId('tag-edit-list');
+  const tagNewForm = byId<HTMLFormElement>('tag-new-form');
+  const tagNewName = byId<HTMLInputElement>('tag-new-name');
+
+  // シートを開いている間に入力中の欄を作り直すと入力が消えるので、タグの構成が変わったときだけ作る
+  let tagSheetKey = '';
+  function renderTagSheet(s: Snapshot) {
+    const key = JSON.stringify(s.tags.map((t) => [t.id, t.name]));
+    if (key === tagSheetKey) return;
+    tagSheetKey = key;
+    if (s.tags.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'note';
+      empty.textContent = 'タグはまだありません。下の欄から追加できます。';
+      tagEditList.replaceChildren(empty);
+      return;
+    }
+    tagEditList.replaceChildren(
+      ...s.tags.map((tag) => {
+        const row = fromTemplate('tpl-tag-edit-row');
+        const input = part<HTMLInputElement>(row, 'input');
+        input.value = tag.name;
+        input.setAttribute('aria-label', `タグ「${tag.name}」の名前`);
+        input.addEventListener('change', () => {
+          const name = input.value.trim();
+          if (!name) input.value = tag.name;
+          else if (name !== tag.name) renameTag(tag.id, name);
+        });
+        const del = part<HTMLButtonElement>(row, 'delete');
+        del.setAttribute('aria-label', `タグ「${tag.name}」を削除`);
+        del.addEventListener('click', async () => {
+          if (del.dataset.armed) {
+            await deleteTag(tag.id);
+            tagSheet.close();
+            return;
+          }
+          del.dataset.armed = '1';
+          del.textContent = 'もう一度';
+        });
+        return row;
+      }),
+    );
+  }
+
+  byId('tag-edit-btn').addEventListener('click', () => {
+    tagSheetKey = '';
+    if (snap) renderTagSheet(snap);
+    tagSheet.showModal();
+  });
+  tagNewForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = tagNewName.value.trim();
+    if (!name) return;
+    const tag = await addTag(name);
+    tagNewName.value = '';
+    // 続けて既存の項目にこのタグを付けられるようにする
+    if (snap && snap.items.length > 0) openTagItems(tag);
+  });
+
+  // ---- タグを付ける項目シート ----
+  const tagItemsSheet = byId<HTMLDialogElement>('tag-items-sheet');
+  const tagItemsBox = byId('tag-items');
+  const tagItemsApply = byId<HTMLButtonElement>('tag-items-apply');
+  let tagItemsTarget: Tag | null = null;
+
+  function syncTagItemsApply() {
+    const n = pressedKeys(tagItemsBox).length;
+    tagItemsApply.disabled = n === 0;
+    tagItemsApply.textContent = n > 0 ? `${n}件に付ける` : '付ける';
+  }
+
+  function openTagItems(tag: Tag) {
+    if (!snap) return;
+    tagItemsTarget = tag;
+    byId('tag-items-lead').textContent = `「${tag.name}」を付ける項目を選んでください。あとから項目詳細の編集でも付けられます。`;
+    tagItemsBox.replaceChildren(
+      ...snap.items.map((item) => {
+        const el = tagToggle(item.name, item.tagIds.includes(tag.id), syncTagItemsApply);
+        el.dataset.key = item.id;
+        return el;
+      }),
+    );
+    syncTagItemsApply();
+    tagItemsSheet.showModal();
+  }
+
+  tagItemsApply.addEventListener('click', async () => {
+    const ids = pressedKeys(tagItemsBox);
+    if (!tagItemsTarget || ids.length === 0) return;
+    const tag = tagItemsTarget;
+    await attachTag(tag.id, ids);
+    // シートを閉じて、作ったタグで絞り込んだリストを見せる（タグを付けた後のデータで描画する）
+    tagItemsSheet.close();
+    tagSheet.close();
+    snap = await load([month]);
+    selectTag(tag.id);
+    toast(`${ids.length}件に「${tag.name}」を付けました`);
+  });
+  byId('tag-items-skip').addEventListener('click', () => tagItemsSheet.close());
 
   function start() {
     stop();

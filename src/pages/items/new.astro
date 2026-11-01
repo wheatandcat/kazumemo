@@ -1,5 +1,6 @@
 ---
 import Icon from '../../components/Icon.astro';
+import TagToggleTemplate from '../../components/TagToggleTemplate.astro';
 import UserToggleTemplate from '../../components/UserToggleTemplate.astro';
 import Base from '../../layouts/Base.astro';
 
@@ -39,6 +40,24 @@ const suggestions = ['洗濯', '掃除', 'ゴミ出し', '朝食準備', '皿洗
     </div>
 
     <fieldset class="field" style="border: none; margin: 0; padding: 0">
+      <legend class="field-label" style="margin-bottom: 12px">タグ（複数OK）</legend>
+      <div class="chips" id="tags"></div>
+      <div class="tag-new">
+        <label for="new-tag" class="visually-hidden">新しいタグ</label>
+        <input
+          id="new-tag"
+          class="text-input"
+          type="text"
+          maxlength="12"
+          autocomplete="off"
+          enterkeyhint="done"
+          placeholder="新しいタグ（例：夜）"
+        />
+        <button type="button" class="btn-outline" id="new-tag-btn">作成</button>
+      </div>
+    </fieldset>
+
+    <fieldset class="field" style="border: none; margin: 0; padding: 0">
       <legend class="field-label" style="margin-bottom: 12px">カウントするユーザー</legend>
       <div class="toggle-grid" id="users"></div>
       <a href="/users/" class="text-link">
@@ -50,7 +69,10 @@ const suggestions = ['洗濯', '掃除', 'ゴミ出し', '朝食準備', '皿洗
     <section class="field" aria-label="プレビュー">
       <span class="field-label">リストでの表示</span>
       <div class="empty" style="gap: 12px; padding: 14px 16px 16px">
-        <span style="font-size: 17px; font-weight: 800" id="preview-name">項目名</span>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+          <span style="font-size: 17px; font-weight: 800" id="preview-name">項目名</span>
+          <span class="mini-tags" id="preview-tags"></span>
+        </div>
         <div class="members" id="preview-avatars" style="min-height: 56px"></div>
       </div>
     </section>
@@ -61,22 +83,62 @@ const suggestions = ['洗濯', '掃除', 'ゴミ出し', '朝食準備', '皿洗
   </form>
 
   <UserToggleTemplate />
+  <TagToggleTemplate />
   <template id="tpl-no-users">
     <p class="note">ユーザーがまだいません。先にユーザーを登録してください。</p>
   </template>
 </Base>
 
 <script>
-  import { avatar, byId, checkedValues, fromTemplate, userToggle } from '../../lib/render';
-  import { addItem, load, type User } from '../../lib/repo';
+  import { avatar, byId, checkedValues, fromTemplate, pressedKeys, tagToggle, userToggle } from '../../lib/render';
+  import { addItem, addTag, load, type User } from '../../lib/repo';
+  import { getSelectedTag } from '../../lib/tagFilter';
 
   const form = byId<HTMLFormElement>('item-form');
   const input = byId<HTMLInputElement>('item-name');
   const usersBox = byId('users');
+  const tagsBox = byId('tags');
+  const newTag = byId<HTMLInputElement>('new-tag');
   const submit = byId<HTMLButtonElement>('submit');
   const previewName = byId('preview-name');
+  const previewTags = byId('preview-tags');
   const previewAvatars = byId('preview-avatars');
   let users: User[] = [];
+  // 既存のタグは id、ここで作ったばかりのタグは名前で持ち、登録時に作成する
+  const tagEntries = new Map<string, { name: string; id: string | null }>();
+
+  function addTagToggle(key: string, name: string, id: string | null, pressed: boolean) {
+    tagEntries.set(key, { name, id });
+    const el = tagToggle(name, pressed, refresh);
+    el.dataset.key = key;
+    tagsBox.append(el);
+  }
+
+  function chosenTags() {
+    return pressedKeys(tagsBox).flatMap((k) => tagEntries.get(k) ?? []);
+  }
+
+  function createTag() {
+    const name = newTag.value.trim();
+    if (!name) return;
+    newTag.value = '';
+    const same = [...tagEntries.entries()].find(([, t]) => t.name === name);
+    if (same) {
+      tagsBox.querySelector(`[data-key="${CSS.escape(same[0])}"]`)?.setAttribute('aria-pressed', 'true');
+    } else {
+      addTagToggle(`new:${name}`, name, null, true);
+    }
+    refresh();
+  }
+
+  byId('new-tag-btn').addEventListener('click', createTag);
+  // フォームの中なので Enter で項目が登録されないよう、ここではタグの作成にする
+  newTag.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.isComposing) {
+      e.preventDefault();
+      createTag();
+    }
+  });
 
   function selected(): User[] {
     const ids = new Set(checkedValues(usersBox));
@@ -87,6 +149,14 @@ const suggestions = ['洗濯', '掃除', 'ゴミ出し', '朝食準備', '皿洗
     const name = input.value.trim();
     const chosen = selected();
     previewName.textContent = name || '項目名';
+    previewTags.replaceChildren(
+      ...chosenTags().map((t) => {
+        const el = document.createElement('span');
+        el.className = 'mini-tag';
+        el.textContent = t.name;
+        return el;
+      }),
+    );
     previewAvatars.replaceChildren(...chosen.map((u) => avatar(u, 56)));
     submit.disabled = !name || chosen.length === 0;
   }
@@ -106,12 +176,17 @@ const suggestions = ['洗濯', '掃除', 'ゴミ出し', '朝食準備', '皿洗
     const ids = selected().map((u) => u.id);
     if (!name || ids.length === 0) return;
     submit.disabled = true;
-    await addItem(name, ids);
+    const tagIds: string[] = [];
+    for (const t of chosenTags()) tagIds.push(t.id ?? (await addTag(t.name)).id);
+    await addItem(name, ids, tagIds);
     location.href = '/';
   });
 
   load([]).then((s) => {
     users = s.users;
+    // リストでタグを選んでいたら、そのタグを付けた状態で始める
+    const current = getSelectedTag();
+    for (const t of s.tags) addTagToggle(t.id, t.name, t.id, t.id === current);
     if (users.length === 0) {
       usersBox.replaceChildren(fromTemplate('tpl-no-users'));
     } else {

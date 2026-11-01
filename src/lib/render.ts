@@ -50,6 +50,23 @@ export function userToggle(user: User, checked: boolean): HTMLElement {
   return el;
 }
 
+/** TagToggleTemplate の複製。押すたびにオン／オフが切り替わる */
+export function tagToggle(label: string, pressed: boolean, onChange: () => void): HTMLButtonElement {
+  const el = fromTemplate<HTMLButtonElement>('tpl-tag-toggle');
+  el.setAttribute('aria-pressed', String(pressed));
+  part(el, 'label').textContent = label;
+  el.addEventListener('click', () => {
+    el.setAttribute('aria-pressed', String(el.getAttribute('aria-pressed') !== 'true'));
+    onChange();
+  });
+  return el;
+}
+
+/** オンになっているタグ切り替えボタンの data-key を返す */
+export function pressedKeys(root: ParentNode): string[] {
+  return Array.from(root.querySelectorAll<HTMLElement>('[aria-pressed="true"]'), (el) => el.dataset.key ?? '');
+}
+
 /** 選択中のチェックボックスの値（ユーザーID）を返す */
 export function checkedValues(root: ParentNode): string[] {
   return Array.from(root.querySelectorAll<HTMLInputElement>('input[type="checkbox"]:checked'), (i) => i.value);
