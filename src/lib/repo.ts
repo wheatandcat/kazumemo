@@ -1,8 +1,8 @@
 import { liveQuery } from 'dexie';
-import { db, type CountEvent, type Item, type User } from './db';
+import { db, type CountEvent, type Item, type Tag, type User } from './db';
 import { dayIn, daysInMonth } from './month';
 
-export type { Item, User };
+export type { Item, Tag, User };
 
 /** month -> itemId -> userId -> 回数 */
 export type Counts = Record<string, Record<string, Record<string, number>>>;
@@ -13,6 +13,7 @@ export type Daily = Record<string, Record<string, Record<string, number[]>>>;
 export type Snapshot = {
   users: User[];
   items: Item[];
+  tags: Tag[];
   counts: Counts;
   daily: Daily;
 };
@@ -44,9 +45,10 @@ function alive<T extends { deletedAt: number | null; createdAt: number }>(rows: 
 }
 
 async function query(months: string[]): Promise<Snapshot> {
-  const [users, items, events] = await Promise.all([
+  const [users, items, tags, events] = await Promise.all([
     db.users.toArray(),
     db.items.toArray(),
+    db.tags.toArray(),
     months.length > 0 ? db.events.where('month').anyOf(months).toArray() : Promise.resolve([]),
   ]);
   const groups = new Map<string, CountEvent[]>();
@@ -73,7 +75,14 @@ async function query(months: string[]): Promise<Snapshot> {
     ((counts[month] ??= {})[itemId] ??= {})[userId] = stack.length;
     ((daily[month] ??= {})[itemId] ??= {})[userId] = days;
   }
-  return { users: alive(users), items: alive(items).sort((a, b) => a.sortOrder - b.sortOrder), counts, daily };
+  const bySortOrder = (a: { sortOrder: number }, b: { sortOrder: number }) => a.sortOrder - b.sortOrder;
+  return {
+    users: alive(users),
+    items: alive(items).sort(bySortOrder),
+    tags: alive(tags).sort(bySortOrder),
+    counts,
+    daily,
+  };
 }
 
 /** 指定した月のカウントを含むスナップショットを1回だけ取得する */
@@ -104,6 +113,16 @@ export function dailyOf(s: Snapshot, month: string, itemId: string, userId: stri
 /** 項目の現メンバー（項目に登録した順） */
 export function membersOf(s: Snapshot, item: Item): User[] {
   return item.userIds.flatMap((id) => s.users.filter((u) => u.id === id));
+}
+
+/** 項目に付いているタグ（タグ一覧の順） */
+export function tagsOf(s: Snapshot, item: Item): Tag[] {
+  return s.tags.filter((t) => item.tagIds.includes(t.id));
+}
+
+/** タグで絞り込んだ項目。tagId が null なら全件 */
+export function itemsWithTag(s: Snapshot, tagId: string | null): Item[] {
+  return tagId === null ? s.items : s.items.filter((i) => i.tagIds.includes(tagId));
 }
 
 /** ユーザーが参加している項目 */
@@ -145,13 +164,14 @@ export async function deleteUser(id: string): Promise<void> {
   });
 }
 
-export async function addItem(name: string, userIds: string[]): Promise<void> {
+export async function addItem(name: string, userIds: string[], tagIds: string[]): Promise<void> {
   const t = Date.now();
   // 並び替え後の sortOrder は 0, 1, 2... になるので、時刻を入れておけば新しい項目は常に末尾に来る
   await db.items.add({
     id: uuid(),
     name,
     userIds,
+    tagIds,
     sortOrder: t,
     createdAt: t,
     updatedAt: t,
@@ -171,13 +191,63 @@ export async function reorderItems(ids: string[]): Promise<void> {
   });
 }
 
-export async function updateItem(id: string, patch: Partial<Pick<Item, 'name' | 'userIds'>>): Promise<void> {
+export async function updateItem(
+  id: string,
+  patch: Partial<Pick<Item, 'name' | 'userIds' | 'tagIds'>>,
+): Promise<void> {
   await db.items.update(id, { ...patch, updatedAt: Date.now(), syncedAt: 0 });
 }
 
 export async function deleteItem(id: string): Promise<void> {
   const t = Date.now();
   await db.items.update(id, { deletedAt: t, updatedAt: t, syncedAt: 0 });
+}
+
+/** タグを作る。同じ名前のタグがすでにあればそれを返す */
+export async function addTag(name: string): Promise<Tag> {
+  return db.transaction('rw', db.tags, async () => {
+    const existing = (await db.tags.toArray()).find((t) => t.deletedAt === null && t.name === name);
+    if (existing) return existing;
+    const t = Date.now();
+    const tag: Tag = { id: uuid(), name, sortOrder: t, createdAt: t, updatedAt: t, deletedAt: null, syncedAt: 0 };
+    await db.tags.add(tag);
+    return tag;
+  });
+}
+
+/** itemIds の項目にタグを付ける（すでに付いている項目はそのまま） */
+export async function attachTag(tagId: string, itemIds: string[]): Promise<void> {
+  const t = Date.now();
+  await db.transaction('rw', db.items, async () => {
+    await db.items
+      .where('id')
+      .anyOf(itemIds)
+      .modify((i) => {
+        if (i.tagIds.includes(tagId)) return;
+        i.tagIds = [...i.tagIds, tagId];
+        i.updatedAt = t;
+        i.syncedAt = 0;
+      });
+  });
+}
+
+export async function renameTag(id: string, name: string): Promise<void> {
+  await db.tags.update(id, { name, updatedAt: Date.now(), syncedAt: 0 });
+}
+
+/** 論理削除し、付いていた項目からも外す（項目自体は残る） */
+export async function deleteTag(id: string): Promise<void> {
+  const t = Date.now();
+  await db.transaction('rw', db.tags, db.items, async () => {
+    await db.tags.update(id, { deletedAt: t, updatedAt: t, syncedAt: 0 });
+    await db.items
+      .filter((i) => i.tagIds.includes(id))
+      .modify((i) => {
+        i.tagIds = i.tagIds.filter((tagId) => tagId !== id);
+        i.updatedAt = t;
+        i.syncedAt = 0;
+      });
+  });
 }
 
 /**

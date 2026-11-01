@@ -1,6 +1,7 @@
 ---
 import Icon from '../../components/Icon.astro';
 import Sheet from '../../components/Sheet.astro';
+import TagToggleTemplate from '../../components/TagToggleTemplate.astro';
 import UserToggleTemplate from '../../components/UserToggleTemplate.astro';
 import Base from '../../layouts/Base.astro';
 ---
@@ -27,6 +28,7 @@ import Base from '../../layouts/Base.astro';
       <section class="item-title">
         <span class="item-title-name" id="name"></span>
         <span class="sub" id="sub"></span>
+        <span class="mini-tags" id="tags"></span>
       </section>
 
       <section class="card" style="gap: 16px">
@@ -70,12 +72,17 @@ import Base from '../../layouts/Base.astro';
         <div class="toggle-grid" id="edit-users"></div>
       </fieldset>
       <p class="note">ユーザーをはずしても、これまでのカウントは残ります。</p>
+      <fieldset class="field" style="border: none; margin: 0; padding: 0">
+        <legend class="field-label" style="margin-bottom: 12px">タグ</legend>
+        <div class="chips" id="edit-tags"></div>
+      </fieldset>
       <button type="submit" class="btn-primary btn-block" id="save-btn">保存する</button>
       <button type="button" class="btn-danger" id="delete-btn">この項目を削除</button>
     </form>
   </Sheet>
 
   <UserToggleTemplate />
+  <TagToggleTemplate />
 
   <template id="tpl-urow">
     <div class="urow">
@@ -102,7 +109,9 @@ import Base from '../../layouts/Base.astro';
     fromTemplate,
     initialOf,
     part,
+    pressedKeys,
     setColor,
+    tagToggle,
     userToggle,
   } from '../../lib/render';
   import {
@@ -110,6 +119,7 @@ import Base from '../../layouts/Base.astro';
     dailyOf,
     deleteItem,
     membersOf,
+    tagsOf,
     updateItem,
     watch,
     type Item,
@@ -123,6 +133,7 @@ import Base from '../../layouts/Base.astro';
   const editForm = byId<HTMLFormElement>('edit-form');
   const editName = byId<HTMLInputElement>('edit-name');
   const editUsers = byId('edit-users');
+  const editTags = byId('edit-tags');
   const saveBtn = byId<HTMLButtonElement>('save-btn');
   let snap: Snapshot | null = null;
   let item: Item | undefined;
@@ -154,6 +165,13 @@ import Base from '../../layouts/Base.astro';
 
     byId('name').textContent = it.name;
     byId('sub').textContent = `${monthLabel(month)}・${rows.length}人でカウント中`;
+    byId('tags').replaceChildren(
+      ...tagsOf(s, it).map((t) => {
+        const el = span('mini-tag');
+        el.textContent = t.name;
+        return el;
+      }),
+    );
     byId('users-title').textContent = `ユーザー別（${shortMonthLabel(month)}）`;
     byId('total').textContent = String(total);
     byId('no-members').hidden = rows.length > 0;
@@ -254,6 +272,19 @@ import Base from '../../layouts/Base.astro';
     const members = new Set(item.userIds);
     editName.value = item.name;
     editUsers.replaceChildren(...snap.users.map((u) => userToggle(u, members.has(u.id))));
+    if (snap.tags.length === 0) {
+      const note = span('note');
+      note.textContent = 'タグはまだありません。リスト画面のタグ編集から追加できます。';
+      editTags.replaceChildren(note);
+    } else {
+      editTags.replaceChildren(
+        ...snap.tags.map((t) => {
+          const el = tagToggle(t.name, item!.tagIds.includes(t.id), () => {});
+          el.dataset.key = t.id;
+          return el;
+        }),
+      );
+    }
     syncSave();
     sheet.showModal();
   }
@@ -281,7 +312,7 @@ import Base from '../../layouts/Base.astro';
       ...item.userIds.filter((u) => checked.has(u)),
       ...[...checked].filter((u) => !item!.userIds.includes(u)),
     ];
-    await updateItem(id, { name, userIds });
+    await updateItem(id, { name, userIds, tagIds: pressedKeys(editTags) });
     sheet.close();
   });
 

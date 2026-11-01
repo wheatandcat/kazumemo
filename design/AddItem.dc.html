@@ -37,6 +37,25 @@ button,input{font-family:inherit}
     </div>
 
     <fieldset style="border: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px">
+      <legend style="font-size: 13px; font-weight: 800; color: #5B6158; padding: 0; margin-bottom: 12px">タグ（複数OK）</legend>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <sc-for list="{{tags}}" as="t" hint-placeholder-count="3">
+          <button aria-pressed="{{t.pressed}}" onClick="{{t.toggle}}" style="height: 40px; padding: 0 14px; border-radius: 999px; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 6px; cursor: pointer; background: {{t.bg}}; color: {{t.fg}}; border: 1px solid {{t.border}}">
+            <sc-if value="{{t.on}}" hint-placeholder-val="{{ false }}">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+            </sc-if>
+            {{t.label}}
+          </button>
+        </sc-for>
+      </div>
+      <form onSubmit="{{addTag}}" style="display: flex; gap: 8px">
+        <label for="new-tag" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">新しいタグ</label>
+        <input id="new-tag" type="text" value="{{newTag}}" onChange="{{onNewTag}}" placeholder="新しいタグ（例：夜）" style="flex: 1; min-width: 0; height: 44px; box-sizing: border-box; border-radius: 12px; border: 1px solid #C9CDC2; background: #FFFFFF; padding: 0 14px; font-size: 15px; font-weight: 700; color: #1D211C">
+        <button type="submit" style="height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid #1D211C; background: #FFFFFF; color: #1D211C; font-size: 14px; font-weight: 800; cursor: pointer">作成</button>
+      </form>
+    </fieldset>
+
+    <fieldset style="border: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px">
       <legend style="font-size: 13px; font-weight: 800; color: #5B6158; padding: 0; margin-bottom: 12px">カウントするユーザー</legend>
       <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
         <sc-for list="{{users}}" as="u" hint-placeholder-count="4">
@@ -60,7 +79,12 @@ button,input{font-family:inherit}
     <section aria-label="プレビュー" style="display: flex; flex-direction: column; gap: 10px">
       <span style="font-size: 13px; font-weight: 800; color: #5B6158">リストでの表示</span>
       <div style="background: #FFFFFF; border: 1px dashed #B9BDB2; border-radius: 20px; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px">
-        <span style="font-size: 17px; font-weight: 800">{{previewName}}</span>
+        <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 8px">
+          <span style="font-size: 17px; font-weight: 800">{{previewName}}</span>
+          <sc-for list="{{chosenTags}}" as="ct" hint-placeholder-count="1">
+            <span style="height: 22px; padding: 0 8px; border-radius: 999px; background: #F0F1EC; color: #5B6158; font-size: 11px; font-weight: 800; display: flex; align-items: center">{{ct.label}}</span>
+          </sc-for>
+        </div>
         <div style="display: flex; flex-wrap: wrap; gap: 10px 14px; min-height: 56px">
           <sc-for list="{{chosen}}" as="c" hint-placeholder-count="2">
             <span style="width: 56px; height: 56px; border-radius: 999px; color: #FFFFFF; font-size: 20px; font-weight: 800; display: flex; align-items: center; justify-content: center; background: {{c.color}}">{{c.initial}}</span>
@@ -86,12 +110,37 @@ var SUGGEST = ['洗濯', '掃除', 'ゴミ出し', '朝食準備', '皿洗い', 
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    this.state = { name: 'お風呂そうじ', sel: { me: true, son: true } };
+    this.state = { name: 'お風呂そうじ', sel: { me: true, son: true }, tagList: ['家事', '朝', '仕事'], tagSel: { '家事': true }, newTag: '' };
   }
   renderVals() {
     var self = this;
     var sel = this.state.sel;
+    var tagSel = this.state.tagSel;
     return {
+      tags: this.state.tagList.map(function (t) {
+        var on = !!tagSel[t];
+        return {
+          label: t, on: on, pressed: on ? 'true' : 'false',
+          bg: on ? '#1D211C' : '#FFFFFF', fg: on ? '#FFFFFF' : '#1D211C', border: on ? '#1D211C' : '#D5D8CE',
+          toggle: function () {
+            var next = Object.assign({}, self.state.tagSel);
+            next[t] = !next[t];
+            self.setState({ tagSel: next });
+          }
+        };
+      }),
+      chosenTags: this.state.tagList.filter(function (t) { return tagSel[t]; }).map(function (t) { return { label: t }; }),
+      newTag: this.state.newTag,
+      onNewTag: function (e) { self.setState({ newTag: e.target.value }); },
+      addTag: function (e) {
+        e.preventDefault();
+        var t = self.state.newTag.trim();
+        if (!t) return;
+        var list = self.state.tagList.indexOf(t) >= 0 ? self.state.tagList : self.state.tagList.concat([t]);
+        var next = Object.assign({}, self.state.tagSel);
+        next[t] = true;
+        self.setState({ tagList: list, tagSel: next, newTag: '' });
+      },
       name: this.state.name,
       onName: function (e) { self.setState({ name: e.target.value }); },
       previewName: this.state.name || '項目名',
