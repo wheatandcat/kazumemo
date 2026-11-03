@@ -65,26 +65,22 @@ const stores = {
 
 db.version(1).stores(stores);
 
+/** v2 以前の項目に sortOrder を補う（作成順で並べる）。バックアップの取り込みでも使う */
+export function fillItemV2(item: Item): void {
+  item.sortOrder ??= item.createdAt;
+}
+
+/** v3 以前の項目に tagIds を補う（タグなし）。バックアップの取り込みでも使う */
+export function fillItemV3(item: Item): void {
+  item.tagIds ??= [];
+}
+
 // v2: 項目に sortOrder を追加。既存の項目は作成順で並べる
 db.version(2)
   .stores(stores)
-  .upgrade((tx) =>
-    tx
-      .table<Item>('items')
-      .toCollection()
-      .modify((item) => {
-        item.sortOrder ??= item.createdAt;
-      }),
-  );
+  .upgrade((tx) => tx.table<Item>('items').toCollection().modify(fillItemV2));
 
 // v3: タグを追加。既存の項目はタグなしにする
 db.version(3)
   .stores({ ...stores, tags: 'id, updatedAt, syncedAt' })
-  .upgrade((tx) =>
-    tx
-      .table<Item>('items')
-      .toCollection()
-      .modify((item) => {
-        item.tagIds ??= [];
-      }),
-  );
+  .upgrade((tx) => tx.table<Item>('items').toCollection().modify(fillItemV3));

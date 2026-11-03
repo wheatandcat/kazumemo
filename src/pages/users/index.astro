@@ -2,6 +2,7 @@
 import BottomNav from '../../components/BottomNav.astro';
 import ColorSwatches from '../../components/ColorSwatches.astro';
 import Icon from '../../components/Icon.astro';
+import Toast from '../../components/Toast.astro';
 import Base from '../../layouts/Base.astro';
 ---
 
@@ -36,9 +37,20 @@ import Base from '../../layouts/Base.astro';
       <h2 class="section-title" id="user-count"></h2>
       <div class="list" id="user-list"></div>
     </section>
+
+    <section class="card" aria-labelledby="backup-title">
+      <h2 class="card-title" id="backup-title">バックアップ</h2>
+      <p class="note">
+        データはこの端末にだけ保存されています。ファイルに保存しておくと、消えてしまったときや別の端末で復元できます。復元は今のデータに追加・更新する形で取り込みます。
+      </p>
+      <button type="button" class="btn-secondary" id="export-btn">バックアップを保存</button>
+      <button type="button" class="btn-secondary" id="import-btn">バックアップから復元</button>
+      <input type="file" id="import-file" accept="application/json,.json" hidden />
+    </section>
   </main>
 
   <BottomNav active="users" />
+  <Toast />
 
   <template id="tpl-user-row">
     <a class="user-row">
@@ -61,6 +73,8 @@ import Base from '../../layouts/Base.astro';
   import { suggestColor } from '../../lib/colors';
   import { getSelectedMonth, monthLabel } from '../../lib/month';
   import { byId, fromTemplate, initialOf, part, setColor } from '../../lib/render';
+  import { backupFileName, exportBackup, importBackup } from '../../lib/backup';
+  import { toast } from '../../lib/toast';
   import { addUser, countOf, itemsOf, userTotal, watch, type Snapshot, type User } from '../../lib/repo';
 
   const month = getSelectedMonth();
@@ -142,6 +156,29 @@ import Base from '../../layouts/Base.astro';
     input.value = '';
     colorTouched = false;
     syncDraft();
+  });
+
+  byId('export-btn').addEventListener('click', async () => {
+    const url = URL.createObjectURL(await exportBackup());
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = backupFileName();
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+
+  const importFile = byId<HTMLInputElement>('import-file');
+  byId('import-btn').addEventListener('click', () => importFile.click());
+  importFile.addEventListener('change', async () => {
+    const file = importFile.files?.[0];
+    importFile.value = '';
+    if (!file) return;
+    try {
+      const { added, updated } = await importBackup(file);
+      toast(added + updated > 0 ? `復元しました（追加${added}件・更新${updated}件）` : '新しいデータはありませんでした');
+    } catch (e) {
+      toast(e instanceof Error ? e.message : '復元に失敗しました');
+    }
   });
 
   watch([month], render);
