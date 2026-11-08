@@ -32,6 +32,31 @@ import Base from '../../layouts/Base.astro';
         </div>
       </section>
 
+      <section class="card">
+        <div class="card-head">
+          <h2 class="card-title">項目別のカウント</h2>
+          <div class="tabs" role="tablist" aria-label="期間">
+            <button type="button" class="tab" role="tab" data-tab="today" aria-selected="true">今日</button>
+            <button type="button" class="tab" role="tab" data-tab="yesterday" aria-selected="false">昨日</button>
+            <button type="button" class="tab" role="tab" data-tab="month" aria-selected="false">今月</button>
+            <button type="button" class="tab" role="tab" data-tab="prev" aria-selected="false">先月</button>
+          </div>
+        </div>
+        <div class="hbars" role="img" id="hbars"></div>
+        <p class="note" id="hbars-empty" hidden>参加している項目はありません。</p>
+      </section>
+
+      <section class="card stats">
+        <div class="stat">
+          <span class="stat-label" id="today-label"></span>
+          <span class="stat-value"><b id="today"></b><span>回</span></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label" id="yesterday-label"></span>
+          <span class="stat-value"><b id="yesterday"></b><span>回</span></span>
+        </div>
+      </section>
+
       <section class="card stats">
         <div class="stat">
           <span class="stat-label" id="total-label"></span>
@@ -41,18 +66,6 @@ import Base from '../../layouts/Base.astro';
           <span class="stat-label">先月との差</span>
           <span class="stat-value"><b id="diff"></b><span>回</span></span>
         </div>
-      </section>
-
-      <section class="card">
-        <div class="card-head">
-          <h2 class="card-title">項目別のカウント</h2>
-          <div class="tabs" role="tablist" aria-label="期間">
-            <button type="button" class="tab" role="tab" data-tab="month" aria-selected="true">今月</button>
-            <button type="button" class="tab" role="tab" data-tab="prev" aria-selected="false">先月</button>
-          </div>
-        </div>
-        <div class="hbars" role="img" id="hbars"></div>
-        <p class="note" id="hbars-empty" hidden>参加している項目はありません。</p>
       </section>
 
       <section class="card">
@@ -105,7 +118,16 @@ import Base from '../../layouts/Base.astro';
 
 <script>
   import { renderDailyChart } from '../../lib/dailyChart';
-  import { addMonths, daysInMonth, getSelectedMonth, monthLabel, recentMonths, shortMonthLabel } from '../../lib/month';
+  import {
+    addMonths,
+    currentMonth,
+    dayLabel,
+    daysInMonth,
+    getSelectedMonth,
+    monthLabel,
+    recentMonths,
+    shortMonthLabel,
+  } from '../../lib/month';
   import { bindDangerButton, byId, fromTemplate, initialOf, part, setColor } from '../../lib/render';
   import {
     countOf,
@@ -123,10 +145,15 @@ import Base from '../../layouts/Base.astro';
   const month = getSelectedMonth();
   const prevMonth = addMonths(month, -1);
   const months = recentMonths(month, 6);
+  // 今日・昨日は選択中の月に関係なく実際の日付で数えるので、今月と先月のカウントも購読する
+  const thisMonth = currentMonth();
+  const watchMonths = [...new Set([...months, thisMonth, addMonths(thisMonth, -1)])];
   const sheet = byId<HTMLDialogElement>('edit-sheet');
   const editForm = byId<HTMLFormElement>('edit-form');
   const editName = byId<HTMLInputElement>('edit-name');
-  let tab: 'month' | 'prev' = 'month';
+  type Tab = 'today' | 'yesterday' | 'month' | 'prev';
+  const TABS: Tab[] = ['today', 'yesterday', 'month', 'prev'];
+  let tab: Tab = 'today';
   let range: 'month' | 'day' = 'month';
   let snap: Snapshot | null = null;
   let user: User | undefined;
@@ -137,16 +164,55 @@ import Base from '../../layouts/Base.astro';
     return '±0';
   }
 
+  function getToday(): Date {
+    return new Date();
+  }
+
+  function getYesterday(): Date {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1);
+  }
+
+  /** date の日にユーザーがその項目を数えた回数 */
+  function dayCount(s: Snapshot, u: User, itemId: string, date: Date): number {
+    return dailyOf(s, currentMonth(date), itemId, u.id)[date.getDate() - 1] ?? 0;
+  }
+
+  /** date の日にユーザーが数えた回数（全項目の合計） */
+  function dayTotal(s: Snapshot, u: User, date: Date): number {
+    return itemsOf(s, u).reduce((sum, item) => sum + dayCount(s, u, item.id, date), 0);
+  }
+
+  function dateLabel(d: Date): string {
+    return dayLabel(currentMonth(d), d.getDate());
+  }
+
+  function renderDays(s: Snapshot, u: User) {
+    const today = getToday();
+    const yesterday = getYesterday();
+    const label = (prefix: string, d: Date) => `${prefix}・${dateLabel(d)}`;
+    byId('today-label').textContent = label('今日', today);
+    byId('today').textContent = String(dayTotal(s, u, today));
+    byId('yesterday-label').textContent = label('昨日', yesterday);
+    byId('yesterday').textContent = String(dayTotal(s, u, yesterday));
+  }
+
   function renderItems(s: Snapshot, u: User) {
-    const target = tab === 'month' ? month : prevMonth;
+    // 今日・昨日はその日の回数、今月・先月は選択中の月とその前月の回数
+    const day = tab === 'today' ? getToday() : tab === 'yesterday' ? getYesterday() : null;
+    const target = tab === 'prev' ? prevMonth : month;
+    const periodLabel = day ? dateLabel(day) : monthLabel(target);
     const rows = itemsOf(s, u)
-      .map((item) => ({ name: item.name, value: countOf(s, target, item.id, u.id) }))
+      .map((item) => ({
+        name: item.name,
+        value: day ? dayCount(s, u, item.id, day) : countOf(s, target, item.id, u.id),
+      }))
       .sort((a, b) => b.value - a.value);
     const max = Math.max(1, ...rows.map((r) => r.value));
     const box = byId('hbars');
     box.hidden = rows.length === 0;
     byId('hbars-empty').hidden = rows.length > 0;
-    box.setAttribute('aria-label', `項目別のカウント（${monthLabel(target)}）：${rows.map((r) => `${r.name} ${r.value}回`).join('、')}`);
+    box.setAttribute('aria-label', `項目別のカウント（${periodLabel}）：${rows.map((r) => `${r.name} ${r.value}回`).join('、')}`);
     box.replaceChildren(
       ...rows.map((r) => {
         const row = fromTemplate('tpl-hbar');
@@ -224,13 +290,14 @@ import Base from '../../layouts/Base.astro';
     byId('total').textContent = String(total);
     byId('diff').textContent = signed(total - userTotal(snap, prevMonth, user));
 
+    renderDays(snap, user);
     renderItems(snap, user);
     renderTrend(snap, user);
   }
 
   for (const t of document.querySelectorAll<HTMLButtonElement>('[data-tab]')) {
     t.addEventListener('click', () => {
-      tab = t.dataset.tab === 'prev' ? 'prev' : 'month';
+      tab = TABS.find((x) => x === t.dataset.tab) ?? 'today';
       render();
     });
   }
@@ -268,7 +335,12 @@ import Base from '../../layouts/Base.astro';
     sheet.close();
   });
 
-  watch(months, (s) => {
+  // 開いたまま日付が変わった場合に備えて、画面に戻ったら今日・昨日を描き直す
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') render();
+  });
+
+  watch(watchMonths, (s) => {
     snap = s;
     render();
   });
