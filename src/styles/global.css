@@ -498,6 +498,7 @@ a {
 
 .card-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -1169,7 +1170,8 @@ a {
 
 .hbar {
   display: grid;
-  grid-template-columns: 76px 1fr 40px;
+  /* 項目名は全角10文字（13px × 10）まで省略せずに表示する */
+  grid-template-columns: 132px 1fr 40px;
   align-items: center;
   gap: 10px;
 }
